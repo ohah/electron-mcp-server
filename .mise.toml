@@ -1,0 +1,7 @@
+[tools]
+node = "24"
+bun = "latest"
+gh = "latest"
+
+[env]
+NODE_OPTIONS = ""

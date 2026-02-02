@@ -1,2 +1,32 @@
+# 참조 코드 (원본 저장소에서 가져온 코드)
+reference/
+
+# Bun/Node
 node_modules/
 dist/
+build/
+.bun/
+*.bun
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# mise
+.mise/
+
+# Post-commit summary (do not commit)
+branch-summary.md

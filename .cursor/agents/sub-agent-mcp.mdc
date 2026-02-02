@@ -1,0 +1,58 @@
+---
+alwaysApply: false
+name: sub-agent-mcp
+model: inherit
+description: Electron MCP 서버 개발 시점. MCP 스펙, stdio/HTTP 트랜스포트, 도구·리소스·프롬프트 구현 시 참고
+---
+
+# Electron MCP 서버 개발 (MCP Server Development)
+
+이 룰은 Electron MCP 서버 코드를 작성·수정할 때 적용한다.
+
+## 0. 레퍼런스 저장소 (Reference repositories)
+
+구현·설계 참고용 코드는 다음 4개 저장소를 사용한다.
+
+- **halilural/electron-mcp-server**
+  https://github.com/halilural/electron-mcp-server
+  Electron + MCP 서버 결합, 이슈·이슈 트래킹 참고.
+
+- **microsoft/playwright-mcp**
+  https://github.com/microsoft/playwright-mcp
+  MCP 서버 구조, 트랜스포트(stdio/SSE), 도구 등록·스키마, 클라이언트 연동.
+
+- **ChromeDevTools/chrome-devtools-mcp**
+  https://github.com/ChromeDevTools/chrome-devtools-mcp
+  MCP 서버 설정·도구 구성, Cursor/Claude 등 클라이언트 설정.
+
+- **hypothesi/mcp-server-tauri**
+  https://github.com/hypothesi/mcp-server-tauri
+  MCP 서버 + 데스크탑 플러그인 구조(Tauri v2), UI 자동화·IPC 모니터링·도구 설계 참고.
+
+## 1. MCP 핵심 개념
+
+- **Tools**: LLM이 호출할 수 있는 함수 (계산, 부수 효과, 네트워크 호출).
+- **Resources**: 클라이언트가 읽는 읽기 전용 데이터.
+- **Prompts**: 재사용 가능한 프롬프트 템플릿.
+
+이 프로젝트에서는 우선 **Tools** 위주로 구현한다.
+
+## 2. 트랜스포트
+
+- **stdio**: Cursor, Claude Desktop 등이 프로세스를 spawn하고 stdin/stdout으로 JSON-RPC 통신. **stdout에 로그를 쓰지 않는다** (메시지 손상).
+- **HTTP/SSE**: 원격·헤드리스 환경에서는 Streamable HTTP 또는 SSE 트랜스포트 고려.
+
+로그는 `console.error`(stderr) 또는 파일로만 출력한다.
+
+## 3. 코드 품질
+
+- **포맷·린트**: oxlint / oxfmt 사용. `.oxlintrc.json`, `.oxfmtrc.json`, `oxlint.json` 준수.
+- **커밋**: `.cursor/rules/commit-rules.mdc`, `.cursor/commands/commit.md` 의 메시지 형식과 pre-commit(format, lint)을 따른다.
+- **PR·리뷰**: `.cursor/commands/pr.md`, `review.md`, `review-apply.md` 및 `init-pr.md` 의 ohah 계정·SSH 설정을 따른다.
+
+## 4. 체크리스트 (개발 시)
+
+- [ ] 레퍼런스 저장소(halilural/electron-mcp-server, playwright-mcp, chrome-devtools-mcp, hypothesi/mcp-server-tauri)에서 필요한 패턴을 참고했는가?
+- [ ] stdio 사용 시 stdout에 로그를 남기지 않았는가?
+- [ ] `mise exec -- bun run format`, `mise exec -- bun run lint` 를 실행했는가?
+- [ ] 커밋 메시지가 type(scope): subject 형식인가?

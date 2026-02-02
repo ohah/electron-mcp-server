@@ -1,0 +1,56 @@
+# 프로젝트 규칙에 맞춰 커밋하기
+
+git 커밋을 만들거나 제안할 때 아래 규칙을 따른다. 자세한 내용은 `AGENTS.md` 참고.
+
+## 메시지 형식
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+- **Type** (필수): `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `style`
+- **Scope** (선택): `server` | `mcp` | `client` | `docs` | `scripts` | `config`
+- **Subject** (필수): 명령형, 소문자로 시작, 50자 이내, 마침표 없음
+- **Body** (선택): 72자마다 줄바꿈; 무엇을·왜 했는지 설명
+- **Footer** (선택): breaking change, 이슈 참조
+
+## 원칙
+
+1. 커밋 하나당 목적 하나
+2. 관련 없는 변경은 별도 커밋으로 분리
+3. 각 커밋은 독립적으로 의미 있어야 함
+4. 작고 논리적인 단위 선호
+
+## 커밋 전 (필수)
+
+도구 버전은 [mise](https://mise.jdx.dev/) 사용 (`.mise.toml` 참고). 포맷/린트는 프로젝트의 bun을 쓰도록 `mise exec --` 로 실행한다.
+
+**TypeScript/JavaScript**: `mise exec -- bun run format` 실행 후 `mise exec -- bun run lint` 실행; 변경된 파일 스테이징 후 커밋.
+
+## 커밋 후 (필수)
+
+커밋한 뒤 MD 파일에 요약을 쓴다. 파일에는 다음이 포함되어야 한다.
+
+1. **제목** (예: 브랜치 이름 또는 커밋 제목)
+2. **작업 내용**: 무엇을 했는지 — 목표, 변경 사항, 결과를 문장으로 (PR 스타일). 테스트 추가·수정이 있으면 언급 (예: "…에 대한 테스트 추가" 또는 "테스트 커버리지에 … 포함").
+
+**이 MD 파일은 커밋하지 않는다** (`.gitignore`에 넣거나 unstaged로 둔다).
+
+## 예시
+
+```
+feat(mcp): MCP 서버용 stdio 트랜스포트 추가
+
+- @modelcontextprotocol/sdk로 StdioServerTransport 구현
+- Cursor/Claude Desktop용 샘플 도구 등록
+```
+
+```
+fix(server): stdio 종료 시 연결 해제 처리
+
+- 프로세스 종료 시 트랜스포트 정리
+```
