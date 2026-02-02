@@ -2,8 +2,19 @@
  * Take screenshot of a running Electron app via Playwright CDP.
  */
 
+import path from 'node:path';
 import { chromium } from 'playwright';
 import { scanForElectronApps } from './discovery';
+
+/** Resolve outputPath and ensure it is under cwd to prevent path traversal. */
+function resolveSafeOutputPath(outputPath: string): string {
+  const resolved = path.resolve(process.cwd(), outputPath);
+  const relative = path.relative(process.cwd(), resolved);
+  if (relative.startsWith('..')) {
+    throw new Error('outputPath must be under the current working directory');
+  }
+  return resolved;
+}
 
 export async function takeScreenshot(
   outputPath?: string,
@@ -50,9 +61,10 @@ export async function takeScreenshot(
     const buffer = await targetPage.screenshot({ type: 'png', fullPage: false });
     const base64 = Buffer.from(buffer).toString('base64');
     if (outputPath) {
+      const safePath = resolveSafeOutputPath(outputPath);
       const fs = await import('fs/promises');
-      await fs.writeFile(outputPath, buffer);
-      return { filePath: outputPath, base64 };
+      await fs.writeFile(safePath, buffer);
+      return { filePath: safePath, base64 };
     }
     return { base64 };
   } finally {
