@@ -1,5 +1,5 @@
 {
-  "name": "electron-mcp-server",
+  "name": "@ohah/electron-mcp-server",
   "version": "1.0.0",
   "description": "MCP server (Node bin) for Electron app automation via CDP. Use with any Electron app running --remote-debugging-port=9222.",
   "bin": {
