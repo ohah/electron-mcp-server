@@ -97,7 +97,7 @@ export function executeInElectron(
         }
       });
 
-      ws.on('error', (err) => {
+      ws.on('error', (err: Error) => {
         clearTimeout(timeout);
         reject(err);
       });

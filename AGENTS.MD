@@ -45,7 +45,7 @@ electron-mcp-server/
 ├── .cursor/
 │   ├── commands/        # commit, pr, init-pr, review, review-apply, copilot-review
 │   ├── rules/           # commit-rules.mdc
-│   └── agents/          # sub-agent-mcp, sub-agent-review
+│   └── agents/          # sub-agent-mcp, sub-agent-mcp-setup, sub-agent-review
 ├── .mise.toml           # mise 도구 버전
 ├── .oxfmtrc.json       # oxfmt 설정
 ├── .oxlintrc.json      # oxlint 설정
@@ -69,6 +69,10 @@ bun run build
 bun run mcp                  # Node만 사용, stdio MCP 서버
 bun run start                # Electron 앱
 ```
+
+## 세팅 문제 해결 (Bun 모노레포, npx·.bin·심링크)
+
+- **electron-mcp-server 세팅 전문가**: `.cursor/agents/sub-agent-mcp-setup.mdc` — Bun 모노레포에서 `npx -y electron-mcp-server` 실패, `Cannot find module ... dist/mcp-server/index.js`, Windows "인식할 수 없는 명령" 등 원인·해결(workspace devDep, package-lock 제거, npx 캐시 클리어) 정리.
 
 ## 커밋·PR 규칙
 
