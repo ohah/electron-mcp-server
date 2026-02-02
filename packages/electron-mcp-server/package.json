@@ -1,28 +1,31 @@
 {
   "name": "electron-mcp-server",
   "version": "1.0.0",
-  "description": "Electron MCP server app",
-  "main": "dist/main.js",
+  "description": "MCP server (Node bin) for Electron app automation via CDP. Use with any Electron app running --remote-debugging-port=9222.",
+  "bin": {
+    "electron-mcp-server": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && vite build",
-    "build:renderer": "vite build",
-    "dev:renderer": "vite",
-    "start": "bun run build && electron .",
-    "mcp": "bun run build && node dist/mcp-server.js"
+    "build": "bunup",
+    "mcp:run": "node dist/index.js",
+    "mcp": "bun run build && node dist/index.js",
+    "test": "bun test",
+    "test:e2e": "bunup && bun test tests/e2e",
+    "test:e2e:node": "bunup && node tests/e2e/mcp-e2e.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "playwright": "^1.49.0",
+    "ws": "^8.18.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react": "^4.2.0",
-    "electron": "22.3.27",
-    "typescript": "^5.3.0",
-    "vite": "npm:rolldown-vite@7.3.0"
+    "bunup": "^0.16.22",
+    "typescript": "^5.3.0"
   }
 }

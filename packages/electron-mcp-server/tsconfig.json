@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "composite": true,
+    "composite": false,
     "target": "ES2022",
     "module": "CommonJS",
     "moduleResolution": "Node",
@@ -11,10 +11,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
+    "declaration": false,
     "sourceMap": true
   },
-  "include": ["src/main.ts", "src/preload.ts"],
-  "exclude": ["node_modules", "dist", "renderer"]
+  "include": ["src/mcp-server/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

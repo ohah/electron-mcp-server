@@ -7,14 +7,11 @@ dist/
 build/
 .bun/
 *.bun
-
-# IDE
+package-lock.json# IDE
 .idea/
 *.swp
 *.swo
-*~
-
-# OS
+*~# OS
 .DS_Store
 Thumbs.db
 
@@ -26,7 +23,5 @@ Thumbs.db
 .env.local
 
 # mise
-.mise/
-
-# Post-commit summary (do not commit)
+.mise/# Post-commit summary (do not commit)
 branch-summary.md
