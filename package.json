@@ -15,21 +15,23 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "bun run --filter electron-mcp-server build && bun run --filter electron-mcp-demo build",
-    "build:mcp": "bun run --filter electron-mcp-server build",
+    "build": "bun run --filter @ohah/electron-mcp-server build && bun run --filter electron-mcp-demo build",
+    "build:mcp": "bun run --filter @ohah/electron-mcp-server build",
     "build:demo": "bun run --filter electron-mcp-demo build",
     "start": "bun run --filter electron-mcp-demo start",
     "start:demo": "bun run --filter electron-mcp-demo start",
-    "mcp": "bun run --filter electron-mcp-server mcp",
-    "test": "bun run --filter electron-mcp-server test",
-    "test:e2e": "bun run --filter electron-mcp-server test:e2e",
+    "dev": "bun run --filter electron-mcp-demo dev",
+    "dev:demo": "bun run --filter electron-mcp-demo dev",
+    "mcp": "bun run --filter @ohah/electron-mcp-server mcp",
+    "test": "bun run --filter @ohah/electron-mcp-server test",
+    "test:e2e": "bun run --filter @ohah/electron-mcp-server test:e2e",
     "typecheck": "bunx tsc --noEmit -p packages/electron-mcp-server",
     "format": "oxfmt .",
     "format:check": "oxfmt . --check",
     "lint": "oxlint ."
   },
   "devDependencies": {
-    "electron-mcp-server": "workspace:*",
+    "@ohah/electron-mcp-server": "workspace:*",
     "oxfmt": "latest",
     "oxlint": "latest",
     "typescript": "^5.9.3"
