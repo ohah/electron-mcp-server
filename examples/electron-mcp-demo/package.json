@@ -2,14 +2,16 @@
   "name": "electron-mcp-demo",
   "version": "1.0.0",
   "private": true,
-  "description": "Example Electron app for testing electron-mcp-server (run with --remote-debugging-port=9222)",
+  "description": "Example Electron app for testing @ohah/electron-mcp-server (run with --remote-debugging-port=9222)",
   "main": "dist/main.js",
   "scripts": {
     "build": "bunup && vite build",
     "build:main": "bunup",
     "build:renderer": "vite build",
     "start": "electron .",
-    "dev": "bun run build && electron ."
+    "dev": "bun run build:main && bunx kill-port 5173 && concurrently -k \"vite\" \"wait-on http://localhost:5173 && node scripts/dev-electron.mjs\"",
+    "dev:vite": "vite",
+    "dev:electron": "node scripts/dev-electron.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -21,8 +23,12 @@
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
     "bunup": "^0.16.22",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
     "electron": "22.3.27",
+    "kill-port": "^2.0.0",
     "typescript": "^5.9.3",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "wait-on": "^8.0.1"
   }
 }
