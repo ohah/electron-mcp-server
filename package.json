@@ -1,8 +1,8 @@
 {
-  "name": "electron-mcp-server",
+  "name": "electron-mcp-server-workspace",
   "version": "1.0.0",
   "private": true,
-  "description": "Electron app that runs an MCP (Model Context Protocol) server - for Cursor, Claude Desktop, etc.",
+  "description": "Workspace: packages/electron-mcp-server (MCP bin) + examples/electron-mcp-demo (example Electron app).",
   "keywords": [
     "electron",
     "mcp",
@@ -11,19 +11,26 @@
   "license": "MIT",
   "author": "",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/*"
   ],
   "scripts": {
-    "build": "bun run --filter electron-mcp-server build",
-    "start": "bun run --filter electron-mcp-server start",
+    "build": "bun run --filter electron-mcp-server build && bun run --filter electron-mcp-demo build",
+    "build:mcp": "bun run --filter electron-mcp-server build",
+    "build:demo": "bun run --filter electron-mcp-demo build",
+    "start": "bun run --filter electron-mcp-demo start",
+    "start:demo": "bun run --filter electron-mcp-demo start",
     "mcp": "bun run --filter electron-mcp-server mcp",
+    "test": "bun run --filter electron-mcp-server test",
+    "test:e2e": "bun run --filter electron-mcp-server test:e2e",
     "format": "oxfmt .",
     "format:check": "oxfmt . --check",
     "lint": "oxlint ."
   },
   "devDependencies": {
+    "electron-mcp-server": "workspace:*",
     "oxfmt": "latest",
     "oxlint": "latest",
-    "typescript": "^5.3.0"
+    "typescript": "^5.9.3"
   }
 }
