@@ -22,7 +22,7 @@
     "@vitejs/plugin-react": "^4.2.0",
     "bunup": "^0.16.22",
     "electron": "22.3.27",
-    "typescript": "^5.3.0",
+    "typescript": "^5.9.3",
     "vite": "^6.0.0"
   }
 }

@@ -7,7 +7,10 @@ dist/
 build/
 .bun/
 *.bun
-package-lock.json# IDE
+package-lock.json
+*.tsbuildinfo
+
+# IDE
 .idea/
 *.swp
 *.swo
