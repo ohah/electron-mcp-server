@@ -1,0 +1,79 @@
+---
+alwaysApply: false
+name: sub-agent-mcp-setup
+model: inherit
+description: electron-mcp-server 세팅 전문가. Bun 모노레포에서 npx·.bin·심링크, Cursor MCP 연동 문제 해결 시 참고
+---
+
+# Electron MCP 서버 세팅 전문가 (Setup Expert)
+
+이 룰은 **electron-mcp-server를 Bun 모노레포에서 설치·실행·Cursor MCP 연동**할 때 발생하는 문제(심링크, npx, .bin, 잘못된 경로)를 진단하고 해결할 때 적용한다.
+
+## 1. 프로젝트 구조 (Bun 모노레포)
+
+- **루트**: `package.json`(workspaces: `packages/*`, `examples/*`), `bun.lock`만 사용. **package-lock.json은 사용하지 않는다** (Bun 전용).
+- **MCP 서버**: `packages/electron-mcp-server` — Node 전용 프로세스, 빌드 결과는 `dist/index.js` (bunup).
+- **Electron 데모**: `examples/electron-mcp-demo` — `--remote-debugging-port=9222`로 실행해 MCP 도구가 타깃으로 쓴다.
+- **Cursor MCP 설정**: `.cursor/mcp.json`에서 `npx -y electron-mcp-server`로 실행.
+
+## 2. 왜 "electron-mcp-server를 찾을 수 없음" / "Cannot find module ... dist/mcp-server/index.js" 가 나오는가
+
+### 2.1 워크스페이스 패키지는 루트 `.bin`에 없음
+
+- Bun(또는 npm) 워크스페이스에서 **루트 `package.json`에 dependency로 넣지 않은** 패키지는 `node_modules/.bin/<bin-name>` 이 **생성되지 않는다**.
+- `npx -y electron-mcp-server` 는 (로컬이면) `node_modules/.bin/electron-mcp-server` 또는 `node_modules/electron-mcp-server` 의 bin을 실행한다. `.bin`에 실행 파일이 없으면 Windows에서는 "인식할 수 없는 명령"이 나올 수 있다.
+
+### 2.2 잘못된 bin 경로 (dist/mcp-server/index.js)
+
+- 과거에 `packages/electron-mcp-server/package.json` 의 bin이 `dist/mcp-server/index.js` 였다가 `dist/index.js` 로 바뀐 경우, **이미 만들어진** `node_modules/.bin/electron-mcp-server.bunx`(또는 .exe) 안에는 **예전 경로가 하드코딩**되어 있을 수 있다.
+- **package-lock.json**이 있으면 그 안의 `packages/electron-mcp-server` bin 경로가 예전 값(`dist/mcp-server/index.js`)으로 남아 있고, npm/npx가 이를 참조해 잘못된 경로를 쓸 수 있다.
+- **npx 캐시**에 예전 실행 경로가 남아 있으면, 캐시만으로도 같은 오류가 반복될 수 있다.
+
+## 3. 해결 방법 (체크리스트)
+
+### 3.1 루트에서 electron-mcp-server를 dependency로 두기
+
+- **목적**: 루트 `node_modules/.bin` 에 `electron-mcp-server` 실행 파일이 생기게 하여 `npx -y electron-mcp-server` 가 동작하게 한다.
+- **조치**: 루트 `package.json` 의 `devDependencies` 에 추가.
+  ```json
+  "devDependencies": {
+    "electron-mcp-server": "workspace:*",
+    ...
+  }
+  ```
+- 그 다음 **`bun install`** 실행. 이제 `node_modules/.bin/electron-mcp-server.bunx`(및 .exe)가 생성되고, 내부 경로는 **현재** `packages/electron-mcp-server/package.json` 의 bin(`dist/index.js`)을 가리킨다.
+
+### 3.2 Bun 전용 유지 — package-lock.json 제거
+
+- **원칙**: 이 모노레포는 Bun만 사용한다. `package-lock.json` 이 생기면 제거하고, **`.gitignore`에 `package-lock.json`** 을 넣어 두어 실수로 커밋되지 않게 한다.
+- **이유**: lock 파일이 두 개(bun.lock vs package-lock.json)이면 해석이 갈라지고, package-lock.json 에 예전 bin 경로가 남아 npx 등이 잘못된 경로를 참조할 수 있다.
+
+### 3.3 npx 캐시 클리어
+
+- **증상**: 이미 3.1을 적용했는데도 같은 "Cannot find module ... dist/mcp-server/index.js" 가 난다.
+- **조치**: `npx clear-npx-cache` 실행 후 Cursor MCP 서버를 다시 켠다.
+- **추가**: 그래도 안 되면 `node_modules` 를 통째로 지운 뒤 `bun install` 로 다시 깔아서 `.bin` 이 현재 `package.json` 기준으로 재생성되게 한다.
+
+### 3.4 패키지 bin 경로 확인
+
+- **확인**: `packages/electron-mcp-server/package.json` 에서 bin 이 **`dist/index.js`** 인지 확인.
+  ```json
+  "bin": {
+    "electron-mcp-server": "dist/index.js"
+  }
+  ```
+- 빌드는 `bun run build:mcp`(또는 패키지 내 `bun run build`)로 하고, `packages/electron-mcp-server/dist/index.js` 가 존재하는지 확인한다.
+
+## 4. 에러별 대응 요약
+
+| 증상 | 우선 조치 |
+|------|-----------|
+| `'electron-mcp-server'는(은) 인식할 수 없는 명령` (Windows) | 루트에 `electron-mcp-server: "workspace:*"` 추가 후 `bun install` |
+| `Cannot find module '.../dist/mcp-server/index.js'` | 3.1 적용 후에도 난다면 `npx clear-npx-cache` → 그래도 안 되면 `rm -rf node_modules && bun install` |
+| package-lock.json 이 다시 생김 | `.gitignore`에 `package-lock.json` 추가, 해당 파일 삭제 후 Bun만 사용 |
+| Cursor에서 MCP 서버가 안 뜸 | 프로젝트 루트에서 `bun install` 한 번 실행한 뒤 Cursor MCP 재시작 |
+
+## 5. 참고
+
+- **MCP 서버 개발** 규칙·레퍼런스: `.cursor/agents/sub-agent-mcp.mdc`, `AGENTS.MD`.
+- **커밋·PR**: `.cursor/rules/commit-rules.mdc`, `.cursor/commands/commit.md`, `pr.md`.

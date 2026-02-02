@@ -23,6 +23,7 @@
     "mcp": "bun run --filter electron-mcp-server mcp",
     "test": "bun run --filter electron-mcp-server test",
     "test:e2e": "bun run --filter electron-mcp-server test:e2e",
+    "typecheck": "bunx tsc --noEmit -p packages/electron-mcp-server",
     "format": "oxfmt .",
     "format:check": "oxfmt . --check",
     "lint": "oxlint ."
