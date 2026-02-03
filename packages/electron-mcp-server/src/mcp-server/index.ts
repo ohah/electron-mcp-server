@@ -10,21 +10,52 @@ import { getElectronWindowInfo } from './discovery';
 import { sendCommandToElectron } from './commands';
 import { takeScreenshot } from './screenshot';
 
+const getElectronWindowInfoSchema = z.object({
+  includeChildren: z.boolean().optional().describe('Include child/DevTools windows'),
+});
+const takeScreenshotSchema = z.object({
+  outputPath: z.string().optional().describe('Optional file path to save'),
+  windowTitle: z.string().optional().describe('Filter by window title'),
+});
+const sendCommandToElectronSchema = z.object({
+  command: z.string().optional().describe('get_title | get_url | get_body_text | eval'),
+  args: z.object({ code: z.string().optional() }).optional(),
+});
+
+type GetElectronWindowInfoArgs = z.infer<typeof getElectronWindowInfoSchema>;
+type TakeScreenshotArgs = z.infer<typeof takeScreenshotSchema>;
+type SendCommandToElectronArgs = z.infer<typeof sendCommandToElectronSchema>;
+
+/** Wraps server.registerTool to avoid TS2589 (excessively deep instantiation) from SDK generics. */
+function registerTool<TArgs>(
+  server: McpServer,
+  name: string,
+  description: string,
+  inputSchema: z.ZodTypeAny,
+  handler: (args: TArgs) => Promise<{ content: unknown[] }>
+): void {
+  (
+    server as {
+      registerTool(
+        name: string,
+        def: { description: string; inputSchema: z.ZodTypeAny },
+        handler: (args: unknown) => Promise<unknown>
+      ): void;
+    }
+  ).registerTool(name, { description, inputSchema }, (args: unknown) => handler(args as TArgs));
+}
+
 async function main() {
   const server = new McpServer({
     name: 'electron-mcp-server',
     version: '1.0.0',
   });
 
-  server.registerTool(
+  registerTool<GetElectronWindowInfoArgs>(
+    server,
     'get_electron_window_info',
-    {
-      description:
-        'Get information about running Electron apps (windows). Detects apps with remote debugging on port 9222.',
-      inputSchema: z.object({
-        includeChildren: z.boolean().optional().describe('Include child/DevTools windows'),
-      }),
-    },
+    'Get information about running Electron apps (windows). Detects apps with remote debugging on port 9222.',
+    getElectronWindowInfoSchema,
     async (args) => {
       const result = await getElectronWindowInfo(!!args?.includeChildren);
       return {
@@ -33,15 +64,11 @@ async function main() {
     }
   );
 
-  server.registerTool(
+  registerTool<TakeScreenshotArgs>(
+    server,
     'take_screenshot',
-    {
-      description: 'Take a screenshot of a running Electron app. Returns base64 PNG.',
-      inputSchema: z.object({
-        outputPath: z.string().optional().describe('Optional file path to save'),
-        windowTitle: z.string().optional().describe('Filter by window title'),
-      }),
-    },
+    'Take a screenshot of a running Electron app. Returns base64 PNG.',
+    takeScreenshotSchema,
     async (args) => {
       const { base64, filePath } = await takeScreenshot(args?.outputPath, args?.windowTitle);
       const content: Array<
@@ -59,16 +86,11 @@ async function main() {
     }
   );
 
-  server.registerTool(
+  registerTool<SendCommandToElectronArgs>(
+    server,
     'send_command_to_electron',
-    {
-      description:
-        'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code).',
-      inputSchema: z.object({
-        command: z.string().optional().describe('get_title | get_url | get_body_text | eval'),
-        args: z.object({ code: z.string().optional() }).optional(),
-      }),
-    },
+    'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code).',
+    sendCommandToElectronSchema,
     async (args) => {
       const command = args?.command ?? 'get_title';
       const cmdArgs = args?.args;
