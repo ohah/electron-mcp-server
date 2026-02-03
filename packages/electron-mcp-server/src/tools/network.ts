@@ -34,11 +34,20 @@ let fetchBodiesOption = true;
 const bodyQueue: string[] = [];
 let bodyQueueScheduled = false;
 
-function parseHeaders(headers?: Array<{ name: string; value: string }>): Record<string, string> {
-  if (!headers || !Array.isArray(headers)) return {};
+function parseHeaders(
+  headers?: Array<{ name: string; value: string }> | Record<string, string>
+): Record<string, string> {
+  if (!headers) return {};
+  if (Array.isArray(headers)) {
+    const out: Record<string, string> = {};
+    for (const h of headers) {
+      if (h?.name != null && h?.value != null) out[h.name] = h.value;
+    }
+    return out;
+  }
   const out: Record<string, string> = {};
-  for (const h of headers) {
-    if (h?.name != null && h?.value != null) out[h.name] = h.value;
+  for (const [name, value] of Object.entries(headers)) {
+    if (value != null) out[name] = String(value);
   }
   return out;
 }
@@ -72,7 +81,7 @@ function scheduleBodyQueue(): void {
   setImmediate(async () => {
     bodyQueueScheduled = false;
     const ws = captureWs;
-    if (!ws || ws.readyState !== ws.OPEN) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     while (bodyQueue.length > 0) {
       const requestId = bodyQueue.shift();
       if (!requestId) break;
@@ -101,7 +110,7 @@ function clearCaptureState(): void {
 }
 
 async function startCaptureIfNeeded(): Promise<void> {
-  if (captureWs && captureWs.readyState === captureWs.OPEN) {
+  if (captureWs && captureWs.readyState === WebSocket.OPEN) {
     return;
   }
   if (captureWs) {
