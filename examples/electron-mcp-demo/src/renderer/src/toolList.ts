@@ -18,6 +18,10 @@ export const IMPLEMENTED_IDS = new Set([
   'evaluate_script',
   'list_network_requests',
   'get_network_request',
+  'list_pages',
+  'select_page',
+  'navigate_page',
+  'wait_for',
 ]);
 
 export const TOOLS: ToolItem[] = [
