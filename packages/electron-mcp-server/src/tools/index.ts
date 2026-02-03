@@ -13,6 +13,7 @@ import { registerNavigationTools } from './navigation';
 import { registerEmulationTools } from './emulation';
 import { registerPerformanceTools } from './performance';
 import { registerNetworkTools } from './network';
+import { registerEvaluateScript } from './evaluate-script';
 import { registerDebuggingStubTools } from './debugging-stub';
 
 export function registerAllTools(server: McpServer): void {
@@ -24,5 +25,6 @@ export function registerAllTools(server: McpServer): void {
   registerEmulationTools(server);
   registerPerformanceTools(server);
   registerNetworkTools(server);
+  registerEvaluateScript(server);
   registerDebuggingStubTools(server);
 }

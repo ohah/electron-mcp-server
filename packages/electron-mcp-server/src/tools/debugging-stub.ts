@@ -30,7 +30,7 @@ function registerStub(
 }
 
 export function registerDebuggingStubTools(server: McpServer): void {
-  registerStub(server, 'evaluate_script', '페이지 컨텍스트에서 JavaScript 실행');
+  // evaluate_script 는 evaluate-script.ts 에서 구현
   // get_console_message, list_console_messages 는 console.ts 에서 구현
   registerStub(server, 'take_snapshot', 'a11y 트리 기반 페이지 텍스트 스냅샷(uid 부여)');
 }

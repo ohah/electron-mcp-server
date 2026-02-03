@@ -77,6 +77,7 @@ describe('MCP E2E', () => {
     expect(names).toContain('get_electron_window_info');
     expect(names).toContain('take_snapshot');
     expect(names).toContain('send_command_to_electron');
+    expect(names).toContain('evaluate_script');
   });
 
   test('tools/call get_electron_window_info', async () => {
