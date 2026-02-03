@@ -221,7 +221,7 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     expect(res.error).toBeUndefined();
     const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
     const text = content.find((c) => c.type === 'text')?.text ?? '';
-    expect(text).toContain('Clicked');
+    expect(text).toContain('Successfully clicked');
   });
 
   test('tools/call list_console_messages after click → 콘솔 메시지 수집', async () => {
