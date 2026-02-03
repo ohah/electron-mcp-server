@@ -78,6 +78,10 @@ describe('MCP E2E', () => {
     expect(names).toContain('take_snapshot');
     expect(names).toContain('send_command_to_electron');
     expect(names).toContain('evaluate_script');
+    expect(names).toContain('list_pages');
+    expect(names).toContain('select_page');
+    expect(names).toContain('navigate_page');
+    expect(names).toContain('wait_for');
   });
 
   test('tools/call get_electron_window_info', async () => {
@@ -101,5 +105,39 @@ describe('MCP E2E', () => {
       console.warn('tools/call error (schema/version):', res.error?.message);
     }
     expect(ok || !res.error).toBe(true);
+  });
+
+  test('tools/call list_pages', async () => {
+    send(proc, {
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: { name: 'list_pages', arguments: {} },
+    });
+    const line = await readLine(stdoutReader, stdoutBuf);
+    const res = JSON.parse(line);
+    expect(res.error).toBeUndefined();
+    const content = res.result?.content ?? [];
+    const text = content.find((c: { type: string }) => c.type === 'text')?.text ?? '';
+    const parsed = JSON.parse(text) as { pages?: unknown[]; message?: string };
+    expect(parsed).toHaveProperty('pages');
+    expect(Array.isArray(parsed.pages)).toBe(true);
+  });
+
+  test('tools/call select_page with invalid pageId', async () => {
+    send(proc, {
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: { name: 'select_page', arguments: { pageId: 'invalid-page-id-999' } },
+    });
+    const line = await readLine(stdoutReader, stdoutBuf);
+    const res = JSON.parse(line);
+    expect(res.error).toBeUndefined();
+    const content = res.result?.content ?? [];
+    const text = content.find((c: { type: string }) => c.type === 'text')?.text ?? '';
+    const parsed = JSON.parse(text) as { ok?: boolean; message?: string };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.message).toBeDefined();
   });
 });

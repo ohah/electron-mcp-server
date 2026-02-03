@@ -254,16 +254,72 @@ export default function TestPanel({ toolId }: TestPanelProps) {
             </p>
           </section>
         );
-      case 'close_page':
       case 'list_pages':
-      case 'navigate_page':
-      case 'new_page':
+        return (
+          <section style={sectionStyle}>
+            <p>
+              MCP <code>list_pages</code>로 열린 페이지(탭/창) 목록을 조회하세요. 이 창이 목록에
+              나옵니다.
+            </p>
+            <p style={{ fontSize: 14, color: '#555' }}>
+              반환된 <code>id</code>는 <code>select_page</code>, <code>close_page</code>에서
+              사용합니다.
+            </p>
+          </section>
+        );
       case 'select_page':
+        return (
+          <section style={sectionStyle}>
+            <p>
+              먼저 <code>list_pages</code>로 페이지 목록을 가져온 뒤, 그중 <code>id</code>를 사용해{' '}
+              <code>select_page</code>로 선택하세요.
+            </p>
+            <p style={{ fontSize: 14, color: '#555' }}>
+              선택한 페이지가 이후 <code>navigate_page</code>, <code>wait_for</code>,{' '}
+              <code>evaluate_script</code>, <code>click</code> 등 호출의 컨텍스트가 됩니다.
+            </p>
+          </section>
+        );
+      case 'navigate_page':
+        return (
+          <section style={sectionStyle}>
+            <p>
+              MCP <code>navigate_page</code>로 URL 이동·새로고침·뒤로/앞으로를 테스트하세요.
+            </p>
+            <ul style={{ fontSize: 14, color: '#555', marginTop: 8 }}>
+              <li>
+                <code>type: &quot;url&quot;</code>, <code>url: &quot;https://...&quot;</code> → 해당
+                URL로 이동
+              </li>
+              <li>
+                <code>type: &quot;reload&quot;</code> → 현재 페이지 새로고침
+              </li>
+              <li>
+                <code>type: &quot;back&quot;</code> / <code>&quot;forward&quot;</code> → 히스토리
+                이동
+              </li>
+            </ul>
+          </section>
+        );
       case 'wait_for':
         return (
           <section style={sectionStyle}>
             <p>
-              MCP 도구 <code>{toolId}</code>를 호출해 테스트하세요. (내비게이션/페이지 관련)
+              MCP <code>wait_for</code>로 지정한 텍스트가 페이지 본문에 나타날 때까지 대기하세요.
+            </p>
+            <p style={{ fontSize: 14, color: '#555' }}>
+              예: <code>text: &quot;MCP&quot;</code>, <code>text: &quot;Electron&quot;</code> (이
+              페이지에 이미 있으므로 즉시 성공합니다.)
+            </p>
+          </section>
+        );
+      case 'close_page':
+      case 'new_page':
+        return (
+          <section style={sectionStyle}>
+            <p>
+              MCP <code>{toolId}</code>: CDP 단독 모드에서는 창 닫기/새 창 열기를 지원하지 않습니다.
+              호출 시 안내 메시지가 반환됩니다.
             </p>
           </section>
         );

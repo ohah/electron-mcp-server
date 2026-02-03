@@ -16,12 +16,12 @@ electron-mcp-server에서 **Electron 앱(CDP)** 대상으로 동일/유사 기�
 
 ## 내비게이션 (Navigation automation) — 6개
 
-- [ ] `close_page` — 페이지 인덱스로 탭/페이지 닫기
-- [ ] `list_pages` — 열린 페이지 목록 조회
-- [ ] `navigate_page` — URL 이동 / 뒤로·앞으로 / 새로고침
-- [ ] `new_page` — 새 페이지(탭) 열기
-- [ ] `select_page` — 이후 도구 호출의 컨텍스트가 될 페이지 선택
-- [ ] `wait_for` — 지정 텍스트가 나올 때까지 대기
+- [ ] `close_page` — 페이지 인덱스로 탭/페이지 닫기 (CDP 단독 모드: 안내만 반환)
+- [x] `list_pages` — 열린 페이지 목록 조회 (구현 완료)
+- [x] `navigate_page` — URL 이동 / 뒤로·앞으로 / 새로고침 (구현 완료)
+- [ ] `new_page` — 새 페이지(탭) 열기 (CDP 단독 모드: 안내만 반환)
+- [x] `select_page` — 이후 도구 호출의 컨텍스트가 될 페이지 선택 (구현 완료)
+- [x] `wait_for` — 지정 텍스트가 나올 때까지 대기 (구현 완료)
 
 ## 에뮬레이션 (Emulation) — 2개
 

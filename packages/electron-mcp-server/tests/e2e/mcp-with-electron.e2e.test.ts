@@ -174,6 +174,10 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     expect(names).toContain('evaluate_script');
     expect(names).toContain('list_network_requests');
     expect(names).toContain('get_network_request');
+    expect(names).toContain('list_pages');
+    expect(names).toContain('select_page');
+    expect(names).toContain('navigate_page');
+    expect(names).toContain('wait_for');
   });
 
   test('tools/call get_electron_window_info → automationReady', async () => {
@@ -297,6 +301,70 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
       (resRead.result as { content?: { type: string; text?: string }[] })?.content ?? [];
     const textRead = contentRead.find((c) => c.type === 'text')?.text ?? '';
     expect(textRead.trim()).toBe('e2e-value');
+  });
+
+  test('tools/call list_pages → 페이지 목록 반환', async () => {
+    const res = await callMcp('tools/call', {
+      name: 'list_pages',
+      arguments: {},
+    });
+    expect(res.error).toBeUndefined();
+    const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const text = content.find((c) => c.type === 'text')?.text ?? '';
+    const parsed = JSON.parse(text) as { pages: Array<{ id: string; title: string; url: string }> };
+    expect(Array.isArray(parsed.pages)).toBe(true);
+    expect(parsed.pages.length).toBeGreaterThan(0);
+    expect(parsed.pages[0]).toHaveProperty('id');
+    expect(parsed.pages[0]).toHaveProperty('title');
+    expect(parsed.pages[0]).toHaveProperty('url');
+  });
+
+  test('tools/call select_page → pageId로 선택', async () => {
+    const listRes = await callMcp('tools/call', {
+      name: 'list_pages',
+      arguments: {},
+    });
+    expect(listRes.error).toBeUndefined();
+    const listContent =
+      (listRes.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const listText = listContent.find((c) => c.type === 'text')?.text ?? '';
+    const { pages } = JSON.parse(listText) as {
+      pages: Array<{ id: string }>;
+    };
+    const pageId = pages[0]?.id;
+    expect(pageId).toBeDefined();
+
+    const res = await callMcp('tools/call', {
+      name: 'select_page',
+      arguments: { pageId },
+    });
+    expect(res.error).toBeUndefined();
+    const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const text = content.find((c) => c.type === 'text')?.text ?? '';
+    const parsed = JSON.parse(text) as { ok: boolean };
+    expect(parsed.ok).toBe(true);
+  });
+
+  test('tools/call navigate_page type=reload', async () => {
+    const res = await callMcp('tools/call', {
+      name: 'navigate_page',
+      arguments: { type: 'reload' },
+    });
+    expect(res.error).toBeUndefined();
+    const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const text = content.find((c) => c.type === 'text')?.text ?? '';
+    expect(text).toContain('reload');
+  });
+
+  test('tools/call wait_for → 텍스트 대기', async () => {
+    const res = await callMcp('tools/call', {
+      name: 'wait_for',
+      arguments: { text: 'MCP', timeout: 5000 },
+    });
+    expect(res.error).toBeUndefined();
+    const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const text = content.find((c) => c.type === 'text')?.text ?? '';
+    expect(text).toMatch(/Found text|MCP/);
   });
 
   test('tools/call list_network_requests → 상시 수집 후 목록·상세 조회', async () => {

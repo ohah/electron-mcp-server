@@ -203,6 +203,38 @@ export async function getElectronWindowInfo(
   }
 }
 
+/** 선택된 페이지 ID. select_page 도구로 설정하며, findElectronTarget에서 사용. */
+let selectedPageId: string | null = null;
+
+export function getSelectedPageId(): string | null {
+  return selectedPageId;
+}
+
+export function setSelectedPageId(pageId: string | null): void {
+  selectedPageId = pageId;
+}
+
+/** pageId에 해당하는 CDP 타겟 반환. 없으면 null. */
+export async function getTargetByPageId(pageId: string): Promise<DevToolsTarget | null> {
+  const apps = await scanForElectronApps();
+  for (const app of apps) {
+    const t = app.targets.find(
+      (x): x is typeof x & { webSocketDebuggerUrl: string } =>
+        x.id === pageId && !!x.webSocketDebuggerUrl && x.type === 'page'
+    );
+    if (t) {
+      return {
+        id: t.id,
+        title: t.title,
+        url: t.url,
+        webSocketDebuggerUrl: t.webSocketDebuggerUrl,
+        type: t.type,
+      };
+    }
+  }
+  return null;
+}
+
 export async function findElectronTarget(): Promise<DevToolsTarget> {
   const apps = await scanForElectronApps();
   if (apps.length === 0) {
@@ -213,6 +245,11 @@ export async function findElectronTarget(): Promise<DevToolsTarget> {
     );
   }
   const app = apps[0];
+  if (selectedPageId) {
+    const selected = await getTargetByPageId(selectedPageId);
+    if (selected) return selected;
+    selectedPageId = null;
+  }
   const main = findMainTarget(app.targets);
   if (!main?.webSocketDebuggerUrl) {
     throw new Error('No suitable CDP target found.');
