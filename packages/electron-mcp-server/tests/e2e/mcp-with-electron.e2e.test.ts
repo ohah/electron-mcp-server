@@ -97,7 +97,16 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     const cliPath = existsSync(join(demoDir, 'node_modules', 'electron', 'cli.js'))
       ? join(demoDir, 'node_modules', 'electron', 'cli.js')
       : join(workspaceRoot, 'node_modules', 'electron', 'cli.js');
-    electronProc = Bun.spawn(['node', cliPath, '.'], {
+    const electronArgs = [cliPath, '.'];
+    if (process.env.CI) {
+      electronArgs.push(
+        '--no-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--disable-software-rasterizer'
+      );
+    }
+    electronProc = Bun.spawn(['node', ...electronArgs], {
       cwd: demoDir,
       stdin: 'ignore',
       stdout: 'pipe',
