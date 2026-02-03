@@ -1,6 +1,6 @@
 /**
  * 디버깅 (Debugging) — 로드맵 스텁
- * take_screenshot 은 이미 구현됨(screenshot.ts). 나머지만 스텁.
+ * take_snapshot 등 스텁 등록. (take_screenshot 제거됨)
  * @see https://github.com/ohah/electron-mcp-server/issues/3
  */
 
@@ -31,7 +31,6 @@ function registerStub(
 
 export function registerDebuggingStubTools(server: McpServer): void {
   registerStub(server, 'evaluate_script', '페이지 컨텍스트에서 JavaScript 실행');
-  registerStub(server, 'get_console_message', '콘솔 메시지 ID로 단건 조회');
-  registerStub(server, 'list_console_messages', '콘솔 메시지 목록');
+  // get_console_message, list_console_messages 는 console.ts 에서 구현
   registerStub(server, 'take_snapshot', 'a11y 트리 기반 페이지 텍스트 스냅샷(uid 부여)');
 }

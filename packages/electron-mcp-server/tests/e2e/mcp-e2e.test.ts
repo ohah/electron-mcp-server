@@ -75,7 +75,7 @@ describe('MCP E2E', () => {
     const tools = res.result?.tools ?? [];
     const names = tools.map((t: { name: string }) => t.name);
     expect(names).toContain('get_electron_window_info');
-    expect(names).toContain('take_screenshot');
+    expect(names).toContain('take_snapshot');
     expect(names).toContain('send_command_to_electron');
   });
 
