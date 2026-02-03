@@ -37,6 +37,8 @@ description: Electron MCP 서버 개발 시점. MCP 스펙, stdio/HTTP 트랜스
 
 이 프로젝트에서는 우선 **Tools** 위주로 구현한다.
 
+**MCP 구현 스펙**: 도구의 동작·스펙은 **Chrome DevTools MCP**(ChromeDevTools/chrome-devtools-mcp)와 **완전 동일**하게 한다. 도구 이름, 파라미터, 동작 방식(예: 상시 수집 vs 호출 시점 수집), 반환 형식을 레퍼런스에 맞춘다.
+
 ## 2. 트랜스포트
 
 - **stdio**: Cursor, Claude Desktop 등이 프로세스를 spawn하고 stdin/stdout으로 JSON-RPC 통신. **stdout에 로그를 쓰지 않는다** (메시지 손상).
@@ -52,6 +54,7 @@ description: Electron MCP 서버 개발 시점. MCP 스펙, stdio/HTTP 트랜스
 
 ## 4. 체크리스트 (개발 시)
 
+- [ ] **Chrome DevTools MCP와 동일 스펙**: 해당 도구가 chrome-devtools-mcp와 도구 이름·파라미터·동작·반환 형식이 일치하는가?
 - [ ] 레퍼런스 저장소(halilural/electron-mcp-server, playwright-mcp, chrome-devtools-mcp, hypothesi/mcp-server-tauri)에서 필요한 패턴을 참고했는가?
 - [ ] stdio 사용 시 stdout에 로그를 남기지 않았는가?
 - [ ] `mise exec -- bun run format`, `mise exec -- bun run lint` 를 실행했는가?
