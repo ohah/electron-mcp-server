@@ -168,6 +168,8 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     expect(names).toContain('get_console_message');
     expect(names).toContain('click');
     expect(names).toContain('evaluate_script');
+    expect(names).toContain('list_network_requests');
+    expect(names).toContain('get_network_request');
   });
 
   test('tools/call get_electron_window_info → automationReady', async () => {
@@ -279,5 +281,44 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
       (resRead.result as { content?: { type: string; text?: string }[] })?.content ?? [];
     const textRead = contentRead.find((c) => c.type === 'text')?.text ?? '';
     expect(textRead.trim()).toBe('e2e-value');
+  });
+
+  test('tools/call list_network_requests → 상시 수집 후 목록·상세 조회', async () => {
+    await callMcp('tools/call', {
+      name: 'click',
+      arguments: { selector: '[data-testid="sidebar-list_network_requests"]' },
+    });
+    await callMcp('tools/call', {
+      name: 'evaluate_script',
+      arguments: {
+        function:
+          "function() { var btn = document.querySelector('[data-testid=\"demo-fetch-httpbin\"]'); if (btn) { btn.click(); return 'clicked'; } return 'no'; }",
+        args: [],
+      },
+    });
+    await new Promise((r) => setTimeout(r, 800));
+    const res = await callMcp('tools/call', {
+      name: 'list_network_requests',
+      arguments: {},
+    });
+    expect(res.error).toBeUndefined();
+    const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const text = content.find((c) => c.type === 'text')?.text ?? '';
+    const list = JSON.parse(text) as Array<{ requestId: string; url: string; method: string }>;
+    expect(Array.isArray(list)).toBe(true);
+    expect(list.length).toBeGreaterThan(0);
+    const httpbin = list.find((r) => r.url.includes('httpbin'));
+    expect(httpbin).toBeDefined();
+    const getRes = await callMcp('tools/call', {
+      name: 'get_network_request',
+      arguments: { requestId: httpbin!.requestId },
+    });
+    expect(getRes.error).toBeUndefined();
+    const getContent =
+      (getRes.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const getText = getContent.find((c) => c.type === 'text')?.text ?? '';
+    const detail = JSON.parse(getText) as { requestId: string; url: string };
+    expect(detail.requestId).toBe(httpbin!.requestId);
+    expect(detail.url).toContain('httpbin');
   });
 });
