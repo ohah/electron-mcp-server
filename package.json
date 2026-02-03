@@ -21,7 +21,7 @@
     "build:demo": "bun run --filter electron-mcp-demo build",
     "start": "bun run --filter electron-mcp-demo start",
     "start:demo": "bun run --filter electron-mcp-demo start",
-    "dev": "bun run --filter electron-mcp-demo dev",
+    "dev": "bun run build:mcp && bun run --filter electron-mcp-demo dev",
     "dev:demo": "bun run --filter electron-mcp-demo dev",
     "mcp": "bun run --filter @ohah/electron-mcp-server mcp",
     "test": "bun run --filter @ohah/electron-mcp-server test",
