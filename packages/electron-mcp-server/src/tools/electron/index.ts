@@ -40,7 +40,7 @@ export function sendCdp(
   });
 }
 
-const PORTS = [9222, 9223, 9224, 9225];
+const PORTS = [9222, 9223, 9224, 9225, 9229];
 
 export interface ElectronAppInfo {
   port: number;
