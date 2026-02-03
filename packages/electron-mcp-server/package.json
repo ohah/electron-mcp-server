@@ -15,6 +15,8 @@
     "mcp": "bun run build && node dist/index.js",
     "test": "bun test",
     "test:e2e": "bunup && bun test tests/e2e",
+    "test:e2e:mcp": "bun test tests/e2e/mcp-with-electron.e2e.test.ts",
+    "test:e2e:electron": "bun test tests/e2e/electron-playwright.e2e.test.ts",
     "test:e2e:node": "bunup && node tests/e2e/mcp-e2e.mjs"
   },
   "dependencies": {

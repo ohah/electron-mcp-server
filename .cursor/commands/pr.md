@@ -11,10 +11,11 @@
    - 그렇지 않으면 지정된 베이스를 쓴다.
 4. **본문 준비**: `branch-summary.md`가 있고 필요한 섹션(목적, 설명, 테스트 방법 등 또는 제목 + 작업 내용)을 채우고 있으면 그걸 PR 본문으로 쓴다. 섹션이 부족하면 채운 뒤 사용한다.
 5. **PR 생성 또는 수정**:
-   - 열린 PR 없음 → `gh pr create --head <current-branch> --base <base> --title "<title>" --body-file branch-summary.md`
+   - 열린 PR 없음 → `gh pr create` 시 **반드시** `--assignee @me`(자기 자신 할당), `--label <라벨>`(성격에 맞는 라벨) 포함. 예: `gh pr create --head <branch> --base <base> --title "<title>" --body-file branch-summary.md --assignee @me --label enhancement`
    - 열린 PR 있음 → 본문 수정 (베이스가 지정됐고 PR이 열려 있으면 PATCH로 베이스도 수정).
 6. **Push**: 푸시 안 된 커밋이 있으면 `git push origin <current-branch>` 실행.
-7. **라벨**: PR 생성·수정 후 `gh label list`로 확인하고 PR 성격에 맞는 라벨 추가 (예: feat, fix, docs).
+7. **라벨**: PR 생성·수정 후 `gh label list`로 레포 라벨을 확인하고, **반드시** PR 성격에 맞는 라벨을 선택해 붙인다. 생성 시 `--label <name>`으로 함께 넘기거나, 생성 직후 `gh pr edit <number> --add-label <name>` 실행. (신규 기능·기능 추가 → enhancement, 버그 수정 → bug, 문서 → documentation 등)
+8. **담당자(assignee)**: PR 생성 시 **반드시** `--assignee @me`로 자기 자신을 담당자로 지정한다.
 
 ## 베이스 브랜치 (사용자가 지정했을 때)
 
@@ -32,7 +33,7 @@
 - 순서:
   1. 현재 브랜치(XXX)에서 새 브랜치 생성: `git checkout -b feat/xxx-description` (작업 내용으로 이름 짓기).
   2. 커밋 안 된 변경이 있으면 새 브랜치에서 스테이징·커밋(및 push).
-  3. `gh pr create --head <new-branch> --base XXX --title "..." --body-file branch-summary.md --assignee @me`
+  3. `gh pr create --head <new-branch> --base XXX --title "..." --body-file branch-summary.md --assignee @me --label <라벨>`
   4. 새 브랜치 push: `git push -u origin <new-branch>`
 
 ## 이 레포의 gh 계정·SSH remote (ohah 전용)
@@ -57,9 +58,10 @@
    - 베이스가 지정됐으면 → 생성 시 항상 `--base <base>` 전달, 또는 수정 시 PR이 열려 있으면 PATCH에 베이스 포함.
 
    ```bash
-   gh pr create --head $(git branch --show-current) --base <base> --title "<title>" --body-file branch-summary.md
+   gh pr create --head $(git branch --show-current) --base <base> --title "<title>" --body-file branch-summary.md --assignee @me --label <라벨>
    ```
 
+   (라벨은 `gh label list`로 확인 후 PR 성격에 맞는 것 선택. 예: enhancement, bug, documentation)
    - PR이 이미 있으면 → 본문 수정. 베이스가 지정됐고 PR이 열려 있으면 PATCH로 본문·베이스 모두 수정.
 
    ```bash
@@ -77,9 +79,11 @@
 
 6. **`gh`가 없을 때**: [GitHub CLI](https://cli.github.com/) 설치하거나 브라우저에서 PR 연 뒤 (레포 → Compare & pull request) `branch-summary.md` 내용을 설명란에 붙여넣는다.
 
-7. **라벨**: 생성 시 `--label <name>` (여러 개 가능). 수정 시 `gh pr edit <PR-number> --add-label <name>`. `gh label list`에서 PR 성격에 맞는 라벨 선택 (예: feat, fix, docs, config).
+7. **라벨**: 생성 시 `gh pr create`에 `--label <name>` 포함 (여러 개 가능). 수정 시 `gh pr edit <PR-number> --add-label <name>`. `gh label list`로 레포 라벨을 확인한 뒤 PR 성격에 맞는 라벨을 **반드시** 선택해 붙인다 (enhancement, bug, documentation 등).
 
-8. **gh 계정 복원**: 3단계에서 ohah로 바꿨다면 `gh auth switch --hostname github.com --user <previous-login>`으로 원래 계정 복원.
+8. **담당자(assignee)**: PR 생성 시 `--assignee @me`로 자기 자신을 **반드시** 담당자로 지정한다.
+
+9. **gh 계정 복원**: 3단계에서 ohah로 바꿨다면 `gh auth switch --hostname github.com --user <previous-login>`으로 원래 계정 복원.
 
 ## PR 제목 규칙
 
@@ -108,5 +112,6 @@ PR 본문은 `branch-summary.md`를 쓴다. 최소 다음을 포함한다:
 - **베이스**: 사용자가 베이스 브랜치를 지정했으면 생성·수정 시 항상 그걸 쓴다 (베이스와 현재 브랜치가 같을 때는 새 head 브랜치를 만든다).
 - **본문**: `branch-summary.md`를 최신으로 유지하고 PR 설명용으로만 쓴다; 프로젝트에서 허용하지 않는 한 커밋하지 않는다.
 - **Push**: PR 본문을 수정한 뒤 푸시 안 된 커밋이 있으면 push해 PR이 최신 코드를 반영하도록 한다.
-- **라벨**: `gh label list`로 PR 유형(feat, fix, docs 등)에 맞는 라벨을 붙인다.
+- **라벨**: `gh label list`로 레포 라벨을 확인한 뒤 PR 성격에 맞는 라벨을 **반드시** 선택해 붙인다 (enhancement, bug, documentation 등).
+- **담당자(assignee)**: PR 생성 시 **반드시** `--assignee @me`로 자기 자신을 담당자로 지정한다.
 - **이슈 링크**: PR이 이슈와 관련되면 본문에 `Fixes #N` / `Closes #N` 또는 `관련 이슈: #N`을 넣어 링크한다. 제목에 이슈 번호를 쓸 때는 `[#N] 제목` 형태로 한다.
