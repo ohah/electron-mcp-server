@@ -8,11 +8,15 @@ build/
 .bun/
 *.bun
 package-lock.json
-*.tsbuildinfo# IDE
+*.tsbuildinfo
+
+# IDE
 .idea/
 *.swp
 *.swo
-*~# OS
+*~
+
+# OS
 .DS_Store
 Thumbs.db
 
@@ -21,7 +25,9 @@ Thumbs.db
 
 # Environment
 .env
-.env.local# mise
+.env.local
+
+# mise
 .mise/# Post-commit summary (do not commit)
 branch-summary.md
 review-payload.json
