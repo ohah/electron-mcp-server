@@ -8,7 +8,7 @@
     "build": "bunup && vite build",
     "build:main": "bunup",
     "build:renderer": "vite build",
-    "start": "electron .",
+    "start": "electron .  --remote-debugging-port=9222",
     "dev": "bun run build:main && bunx kill-port 5173 && concurrently -k \"vite\" \"wait-on http://localhost:5173 && node scripts/dev-electron.mjs\"",
     "dev:vite": "vite",
     "dev:electron": "node scripts/dev-electron.mjs"

@@ -8,9 +8,7 @@ build/
 .bun/
 *.bun
 package-lock.json
-*.tsbuildinfo
-
-# IDE
+*.tsbuildinfo# IDE
 .idea/
 *.swp
 *.swo
@@ -23,8 +21,8 @@ Thumbs.db
 
 # Environment
 .env
-.env.local
-
-# mise
+.env.local# mise
 .mise/# Post-commit summary (do not commit)
 branch-summary.md
+review-payload.json
+electron-mcp-screenshot.png

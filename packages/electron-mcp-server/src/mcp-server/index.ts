@@ -3,6 +3,7 @@
  * Connects to Electron apps via CDP (--remote-debugging-port=9222).
  */
 
+import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { getElectronWindowInfo } from './discovery';
@@ -20,37 +21,28 @@ async function main() {
     {
       description:
         'Get information about running Electron apps (windows). Detects apps with remote debugging on port 9222.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          includeChildren: {
-            type: 'boolean',
-            description: 'Include child/DevTools windows',
-          },
-        },
-      },
-    } as any,
-    (async (args: { includeChildren?: boolean }) => {
+      inputSchema: z.object({
+        includeChildren: z.boolean().optional().describe('Include child/DevTools windows'),
+      }),
+    },
+    async (args) => {
       const result = await getElectronWindowInfo(!!args?.includeChildren);
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
       };
-    }) as any
+    }
   );
 
   server.registerTool(
     'take_screenshot',
     {
       description: 'Take a screenshot of a running Electron app. Returns base64 PNG.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          outputPath: { type: 'string', description: 'Optional file path to save' },
-          windowTitle: { type: 'string', description: 'Filter by window title' },
-        },
-      },
-    } as any,
-    (async (args: { outputPath?: string; windowTitle?: string }) => {
+      inputSchema: z.object({
+        outputPath: z.string().optional().describe('Optional file path to save'),
+        windowTitle: z.string().optional().describe('Filter by window title'),
+      }),
+    },
+    async (args) => {
       const { base64, filePath } = await takeScreenshot(args?.outputPath, args?.windowTitle);
       const content: Array<
         { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
@@ -64,7 +56,7 @@ async function main() {
         mimeType: 'image/png',
       });
       return { content };
-    }) as any
+    }
   );
 
   server.registerTool(
@@ -72,18 +64,12 @@ async function main() {
     {
       description:
         'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code).',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          command: { type: 'string', description: 'get_title | get_url | get_body_text | eval' },
-          args: {
-            type: 'object',
-            properties: { code: { type: 'string' } },
-          },
-        },
-      },
-    } as any,
-    (async (args: { command?: string; args?: { code?: string } }) => {
+      inputSchema: z.object({
+        command: z.string().optional().describe('get_title | get_url | get_body_text | eval'),
+        args: z.object({ code: z.string().optional() }).optional(),
+      }),
+    },
+    async (args) => {
       const command = args?.command ?? 'get_title';
       const cmdArgs = args?.args;
       const text = await sendCommandToElectron(command, {
@@ -92,7 +78,7 @@ async function main() {
       return {
         content: [{ type: 'text' as const, text }],
       };
-    }) as any
+    }
   );
 
   const transport = new StdioServerTransport();
