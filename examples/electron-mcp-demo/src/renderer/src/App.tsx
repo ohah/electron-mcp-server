@@ -1,56 +1,91 @@
 import React from 'react';
+import { TOOLS, IMPLEMENTED_IDS } from './toolList';
+import TestPanel from './TestPanel';
 
-declare const electronAPI: { platform: string; versions: Record<string, string> } | undefined;
+const SIDEBAR_WIDTH = 280;
 
 export default function App() {
-  const [clickCount, setClickCount] = React.useState(0);
-
-  React.useEffect(() => {
-    console.log('[Electron MCP Demo] App mounted.');
-    return () => console.log('[Electron MCP Demo] App unmounted.');
-  }, []);
-
-  const handleClick = () => {
-    const next = clickCount + 1;
-    setClickCount(next);
-    console.log('[Electron MCP Demo] Button clicked, count:', next);
-  };
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
   return (
-    <div style={{ padding: 24, fontFamily: 'system-ui' }}>
-      <h1>Electron MCP Demo</h1>
-      <p>예제 앱 · MCP 서버가 CDP(9222)로 이 창을 제어합니다.</p>
-      {electronAPI ? (
-        <pre style={{ background: '#f0f0f0', padding: 16, borderRadius: 8 }}>
-          platform: {electronAPI.platform}
-          {'\n'}
-          versions: {JSON.stringify(electronAPI.versions, null, 2)}
-        </pre>
-      ) : (
-        <p>electronAPI not available</p>
-      )}
-      <section style={{ marginTop: 24 }}>
-        <p>
-          <strong>click / list_console_messages 테스트:</strong> 버튼을 누르면 카운트가 올라가고
-          콘솔에 로그가 남습니다. MCP 툴 <code>click</code>으로 이 버튼을 클릭하거나,{' '}
-          <code>list_console_messages</code>로 로그를 확인할 수 있습니다.
-        </p>
-        <button
-          type="button"
-          data-testid="demo-click-button"
-          onClick={handleClick}
-          style={{
-            padding: '10px 20px',
-            fontSize: 16,
-            cursor: 'pointer',
-            borderRadius: 8,
-            border: '1px solid #333',
-            background: '#f0f0f0',
-          }}
-        >
-          Click me (count: {clickCount})
-        </button>
-      </section>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: 'system-ui' }}>
+      {/* 왼쪽: 테스트 항목 사이드바 (이슈 #3 기준 구현된 항목만 ✓) */}
+      <aside
+        style={{
+          width: SIDEBAR_WIDTH,
+          flexShrink: 0,
+          borderRight: '1px solid #ddd',
+          background: '#f8f9fa',
+          overflowY: 'auto',
+          padding: 12,
+        }}
+      >
+        <h3 style={{ margin: '0 0 12px', fontSize: 14, color: '#555' }}>MCP 도구 테스트</h3>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          {TOOLS.map((tool) => {
+            const implemented = IMPLEMENTED_IDS.has(tool.id);
+            const selected = selectedId === tool.id;
+            return (
+              <li
+                key={tool.id}
+                data-testid={`sidebar-${tool.id}`}
+                onClick={() => setSelectedId(tool.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 10px',
+                  cursor: 'pointer',
+                  borderRadius: 6,
+                  background: selected ? '#e3f2fd' : 'transparent',
+                  marginBottom: 2,
+                }}
+              >
+                <span
+                  style={{
+                    width: 20,
+                    height: 20,
+                    flexShrink: 0,
+                    border: '1px solid #999',
+                    borderRadius: 4,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: implemented ? '#28a745' : '#fff',
+                    color: implemented ? '#fff' : 'transparent',
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                  }}
+                  aria-hidden
+                >
+                  {implemented ? '✓' : ''}
+                </span>
+                <span style={{ fontSize: 13, wordBreak: 'break-word' }}>{tool.label}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </aside>
+
+      {/* 오른쪽: 메인 테스트 UI */}
+      <main
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          background: '#fff',
+        }}
+      >
+        {selectedId ? (
+          <TestPanel toolId={selectedId} />
+        ) : (
+          <div style={{ padding: 48, color: '#666', textAlign: 'center' }}>
+            <p>왼쪽 사이드바에서 테스트할 MCP 도구를 선택하세요.</p>
+            <p style={{ fontSize: 14 }}>
+              <strong>✓</strong> = 이슈 #3 기준 구현 완료, 빈 칸 = 미구현.
+            </p>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

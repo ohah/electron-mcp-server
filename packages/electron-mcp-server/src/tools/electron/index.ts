@@ -6,13 +6,12 @@
 
 import WebSocket from 'ws';
 
-/** CDP 요청 한 건 보내고 응답 대기. 여러 툴에서 공유. */
-export function sendCdp(
-  ws: WebSocket,
-  id: number,
-  method: string,
-  params?: object
-): Promise<unknown> {
+/** 프로세스 전역 CDP 요청 id. 멀티 윈도우·동시 호출 시에도 응답 매칭 충돌 방지. */
+let nextCdpId = 1;
+
+/** CDP 요청 한 건 보내고 응답 대기. id는 내부 카운터로 자동 부여. */
+export function sendCdp(ws: WebSocket, method: string, params?: object): Promise<unknown> {
+  const id = nextCdpId++;
   return new Promise((resolve, reject) => {
     const handler = (raw: Buffer) => {
       try {

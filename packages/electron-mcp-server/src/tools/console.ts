@@ -47,7 +47,7 @@ export async function collectConsoleMessages(waitMs: number = 500): Promise<Cons
   ws.on('message', handler);
 
   try {
-    await sendCdp(ws, 1, 'Console.enable');
+    await sendCdp(ws, 'Console.enable');
     await new Promise((r) => setTimeout(r, waitMs));
   } finally {
     ws.off('message', handler);

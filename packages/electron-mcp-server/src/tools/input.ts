@@ -40,14 +40,14 @@ export async function clickInElectron(selector: string): Promise<void> {
     ws.once('error', reject);
   });
   try {
-    await sendCdp(ws, 1, 'Runtime.enable');
+    await sendCdp(ws, 'Runtime.enable');
     const expr = `(function(sel) {
       var el = document.querySelector(sel);
       if (!el) return null;
       var r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     })(${JSON.stringify(selector)})`;
-    const evalResult = (await sendCdp(ws, 2, 'Runtime.evaluate', {
+    const evalResult = (await sendCdp(ws, 'Runtime.evaluate', {
       expression: expr,
       returnByValue: true,
     })) as { result?: { type?: string; value?: { x: number; y: number } } };
@@ -57,7 +57,7 @@ export async function clickInElectron(selector: string): Promise<void> {
     }
     const { x, y } = coord;
     const ts = Date.now() / 1000;
-    await sendCdp(ws, 3, 'Input.dispatchMouseEvent', {
+    await sendCdp(ws, 'Input.dispatchMouseEvent', {
       type: 'mousePressed',
       x,
       y,
@@ -65,7 +65,7 @@ export async function clickInElectron(selector: string): Promise<void> {
       clickCount: 1,
       timestamp: ts,
     });
-    await sendCdp(ws, 4, 'Input.dispatchMouseEvent', {
+    await sendCdp(ws, 'Input.dispatchMouseEvent', {
       type: 'mouseReleased',
       x,
       y,
