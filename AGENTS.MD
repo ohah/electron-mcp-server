@@ -25,6 +25,10 @@ Electron과 Model Context Protocol (MCP)을 결합한 MCP 서버. Cursor, Claude
 - **oxlint** / **oxfmt** (코드 품질)
 - **mise** (도구 버전 관리)
 
+## MCP 구현 스펙
+
+- **도구 동작·스펙은 Chrome DevTools MCP(ChromeDevTools/chrome-devtools-mcp)와 완전 동일하게 구현한다.** 도구 이름, 파라미터, 동작 방식(예: 상시 수집 vs 호출 시점 수집), 반환 형식을 레퍼런스에 맞춘다.
+
 ## 레퍼런스 저장소 (Reference repositories)
 
 구현·설계 참고용 코드는 다음 4개 저장소를 사용한다.
