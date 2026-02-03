@@ -34,3 +34,25 @@ jobs:
 
       - name: Test
         run: bun run test
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Build (demo + MCP)
+        run: bun run build
+
+      - name: E2E (MCP + Electron under Xvfb)
+        run: xvfb-run -a bun run test:e2e
