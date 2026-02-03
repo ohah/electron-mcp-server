@@ -6,9 +6,9 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerGetElectronWindowInfo } from './window-info';
-import { registerTakeScreenshot } from './screenshot';
 import { registerSendCommandToElectron } from './command';
 import { registerInputTools } from './input';
+import { registerConsoleTools } from './console';
 import { registerNavigationTools } from './navigation';
 import { registerEmulationTools } from './emulation';
 import { registerPerformanceTools } from './performance';
@@ -17,9 +17,9 @@ import { registerDebuggingStubTools } from './debugging-stub';
 
 export function registerAllTools(server: McpServer): void {
   registerGetElectronWindowInfo(server);
-  registerTakeScreenshot(server);
   registerSendCommandToElectron(server);
   registerInputTools(server);
+  registerConsoleTools(server);
   registerNavigationTools(server);
   registerEmulationTools(server);
   registerPerformanceTools(server);

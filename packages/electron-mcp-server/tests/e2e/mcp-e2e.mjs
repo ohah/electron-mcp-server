@@ -77,7 +77,7 @@ async function main() {
   }
   const tools = listRes.result?.tools ?? [];
   const names = tools.map((t) => t.name);
-  const required = ['get_electron_window_info', 'take_screenshot', 'send_command_to_electron'];
+  const required = ['get_electron_window_info', 'take_snapshot', 'send_command_to_electron'];
   for (const r of required) {
     if (!names.includes(r)) {
       console.error('missing tool:', r, 'got:', names);
