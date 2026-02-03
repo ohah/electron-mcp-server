@@ -9,7 +9,7 @@ export default defineConfig({
   root: rendererDir,
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 5173, // Vite dev; keep in sync with dev-electron.mjs and index.html CSP
     strictPort: true,
     hmr: { host: 'localhost', port: 5173, protocol: 'ws' },
   },
