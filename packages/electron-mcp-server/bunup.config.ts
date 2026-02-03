@@ -2,7 +2,7 @@ import { defineConfig } from 'bunup';
 
 export default defineConfig({
   name: 'mcp-server',
-  entry: ['src/mcp-server/index.ts'],
+  entry: ['src/index.ts'],
   format: ['cjs'],
   target: 'node',
   outDir: 'dist',

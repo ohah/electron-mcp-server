@@ -1,0 +1,50 @@
+---
+alwaysApply: false
+name: sub-agent-architecture
+model: inherit
+description: 아키텍처 관리자. MCP 서버 소스 구조(tools 중심, utils 비사용)와 코드 분리 원칙 적용 시 참고
+---
+
+# 아키텍처 관리자 (Architecture Manager)
+
+이 룰은 **패키지 소스 구조 설계·리팩터링·새 툴/기능 추가 시** 적용한다. `.cursor/rules/architecture-rules.mdc` 와 동일한 원칙을 지키며, 구조 결정이 필요할 때 이 에이전트를 참고한다.
+
+## 0. 적용 범위
+
+- `packages/electron-mcp-server/src/` 아래 구조.
+- 새 MCP 툴 추가, 공통 로직 추출, 파일/폴더 분리 여부 판단.
+
+## 1. 원칙 요약
+
+1. **utils 폴더를 만들지 않는다.**  
+   툴 전용이든 여러 툴이 쓰는 공통이든, 모두 `src/tools/` 아래에 둔다.
+
+2. **한 툴은 기본적으로 한 파일**  
+   예: `tools/window-info.ts`, `tools/command.ts`.  
+   코드가 많아지면 **그 툴 전용 하위 폴더**를 만들고, `index.ts` 로 툴 등록·export 를 모은 뒤, 나머지는 같은 폴더 안에서 파일로 쪼갠다.
+
+3. **여러 툴이 쓰는 공통 로직**  
+   `tools/<공통이름>/index.ts` 형태로 둔다.  
+   예: `tools/electron/index.ts` — CDP 앱 발견, 타겟 조회, `executeInElectron` 등.
+
+## 2. 현재 구조 (참고)
+
+```
+src/
+├── index.ts                 # MCP 서버 진입점, registerAllTools 호출
+└── tools/
+    ├── index.ts             # registerAllTools
+    ├── electron/
+    │   └── index.ts         # 공통: scanForElectronApps, getElectronWindowInfo, executeInElectron 등
+    ├── window-info.ts       # get_electron_window_info
+    ├── screenshot.ts        # take_screenshot (+ takeScreenshot export)
+    └── command.ts           # send_command_to_electron
+```
+
+## 3. 판단 시 체크리스트
+
+- 새 로직이 **한 툴에만** 쓰이면 → 해당 툴 파일에 두거나, 툴이 커졌을 때만 `tools/<툴이름>/` 폴더로 분리.
+- 새 로직이 **두 개 이상 툴**에서 쓰이면 → `tools/<공통이름>/index.ts` (또는 기존 `tools/electron/` 등)에 추가.
+- **utils/ 로 빼야 할지 고민될 때** → utils 는 쓰지 않고, `tools/` 안 하위 폴더 + `index.ts` 로 정리.
+
+자세한 규칙은 `.cursor/rules/architecture-rules.mdc` 를 따른다.

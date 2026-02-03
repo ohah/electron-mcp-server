@@ -6,7 +6,7 @@
  * 사전 조건: Electron 앱을 --remote-debugging-port=9222 로 실행해 두기
  * 예: examples/electron-mcp-demo 에서 electron . --remote-debugging-port=9222
  */
-import { takeScreenshot } from '../src/mcp-server/screenshot';
+import { takeScreenshot } from '../src/tools/screenshot';
 
 const outputPath = process.argv[2] ?? 'electron-screenshot.png';
 

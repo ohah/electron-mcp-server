@@ -1,13 +1,14 @@
 /**
- * Take screenshot of a running Electron app via CDP only (no Playwright).
- * Connects to the page's webSocketDebuggerUrl and sends Page.captureScreenshot.
+ * MCP tool: take_screenshot
+ * CDP Page.captureScreenshot 사용 (Playwright 없음).
  */
 
 import path from 'node:path';
+import { z } from 'zod';
 import { WebSocket } from 'ws';
-import { scanForElectronApps, findMainTarget } from './discovery';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { scanForElectronApps, findMainTarget, type ElectronAppInfo } from './electron';
 
-/** Resolve outputPath and ensure it is under cwd to prevent path traversal. */
 function resolveSafeOutputPath(outputPath: string): string {
   const resolved = path.resolve(process.cwd(), outputPath);
   const relative = path.relative(process.cwd(), resolved);
@@ -17,10 +18,7 @@ function resolveSafeOutputPath(outputPath: string): string {
   return resolved;
 }
 
-function selectTarget(
-  apps: Awaited<ReturnType<typeof scanForElectronApps>>,
-  windowTitle?: string
-): { wsUrl: string } {
+function selectTarget(apps: ElectronAppInfo[], windowTitle?: string): { wsUrl: string } {
   const app = apps[0]!;
   const targets = app.targets.filter(
     (t): t is typeof t & { webSocketDebuggerUrl: string } =>
@@ -36,7 +34,6 @@ function selectTarget(
   return { wsUrl: chosen.webSocketDebuggerUrl };
 }
 
-/** Send a CDP method and wait for the response (by id). */
 function sendCdp(ws: WebSocket, id: number, method: string, params?: object): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const handler = (raw: Buffer) => {
@@ -52,7 +49,7 @@ function sendCdp(ws: WebSocket, id: number, method: string, params?: object): Pr
           else resolve(msg.result);
         }
       } catch {
-        // ignore non-matching or invalid messages
+        // ignore
       }
     };
     ws.on('message', handler);
@@ -65,6 +62,7 @@ function sendCdp(ws: WebSocket, id: number, method: string, params?: object): Pr
   });
 }
 
+/** 스크립트(try-screenshot)에서도 사용. */
 export async function takeScreenshot(
   outputPath?: string,
   windowTitle?: string
@@ -109,4 +107,49 @@ export async function takeScreenshot(
   } finally {
     ws.close();
   }
+}
+
+const schema = z.object({
+  outputPath: z.string().optional().describe('Optional file path to save'),
+  windowTitle: z.string().optional().describe('Filter by window title'),
+});
+
+export const takeScreenshotTool = {
+  name: 'take_screenshot' as const,
+  description: 'Take a screenshot of a running Electron app. Returns base64 PNG.',
+  inputSchema: schema,
+  handler: async (args: z.infer<typeof schema>) => {
+    const { base64, filePath } = await takeScreenshot(args?.outputPath, args?.windowTitle);
+    const content: Array<
+      { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
+    > = [];
+    if (filePath) {
+      content.push({ type: 'text', text: `Saved: ${filePath}` });
+    }
+    content.push({
+      type: 'image',
+      data: base64,
+      mimeType: 'image/png',
+    });
+    return { content };
+  },
+};
+
+export function registerTakeScreenshot(server: McpServer): void {
+  (
+    server as {
+      registerTool(
+        name: string,
+        def: { description: string; inputSchema: z.ZodTypeAny },
+        handler: (args: unknown) => Promise<unknown>
+      ): void;
+    }
+  ).registerTool(
+    takeScreenshotTool.name,
+    {
+      description: takeScreenshotTool.description,
+      inputSchema: takeScreenshotTool.inputSchema,
+    },
+    (args: unknown) => takeScreenshotTool.handler(args as z.infer<typeof schema>)
+  );
 }
