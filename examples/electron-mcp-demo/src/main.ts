@@ -12,7 +12,9 @@ if (!app || !BrowserWindow) {
 const distDir = path.join(app.getAppPath(), 'dist');
 
 // MCP 서버(별도 패키지)가 CDP로 연결할 수 있도록 리모트 디버깅 포트 활성화
-app.commandLine.appendSwitch('remote-debugging-port', '9222');
+// E2E 테스트에서 ELECTRON_REMOTE_DEBUGGING_PORT 로 다른 포트 지정 가능
+const debugPort = process.env.ELECTRON_REMOTE_DEBUGGING_PORT ?? '9222';
+app.commandLine.appendSwitch('remote-debugging-port', debugPort);
 
 function createWindow(url?: string): electron.BrowserWindow {
   const win = new BrowserWindow({
