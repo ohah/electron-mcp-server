@@ -143,11 +143,12 @@ export default function TestPanel({ toolId }: TestPanelProps) {
                   </td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
-                  <td style={{ padding: '8px 12px' }}>handle_dialog</td>
-                  <td style={{ padding: '8px 12px' }}>Alert/Confirm/Prompt 버튼 클릭 후</td>
+                  <td style={{ padding: '8px 12px' }}>
+                    handle_dialog <span style={{ color: '#999' }}>(미지원)</span>
+                  </td>
+                  <td style={{ padding: '8px 12px' }}>Alert/Confirm/Prompt — 수동으로 닫기</td>
                   <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
-                    {`{ "action": "accept" }`} 또는 {`{ "action": "dismiss" }`},{' '}
-                    {`{ "action": "accept", "promptText": "입력" }`}
+                    — Electron 리모트에서 미지원
                   </td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
@@ -324,8 +325,8 @@ export default function TestPanel({ toolId }: TestPanelProps) {
         return (
           <section style={sectionStyle}>
             <p>
-              아래 버튼을 누르면 다이얼로그가 뜹니다. MCP <code>handle_dialog</code>로 accept 또는
-              dismiss 하세요.
+              아래 버튼을 누르면 다이얼로그가 뜹니다. <code>handle_dialog</code>는 Electron
+              리모트에서 미지원이므로, 다이얼로그가 뜨면 수동으로 닫아주세요.
             </p>
             <div
               style={{
@@ -337,7 +338,7 @@ export default function TestPanel({ toolId }: TestPanelProps) {
               }}
               role="status"
             >
-              다이얼로그가 뜨면 → MCP에서 handle_dialog(accept 또는 dismiss) 호출
+              handle_dialog 미지원 — 다이얼로그는 수동으로 닫기
             </div>
             <button
               type="button"
