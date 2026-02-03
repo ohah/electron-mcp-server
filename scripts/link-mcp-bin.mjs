@@ -18,6 +18,9 @@ if (!fs.existsSync(target)) {
   process.exit(0);
 }
 
+// sh가 bin을 실행할 때 Permission denied 방지 (shebang은 bunup banner로 이미 있음)
+fs.chmodSync(target, 0o755);
+
 if (!fs.existsSync(binDir)) {
   fs.mkdirSync(binDir, { recursive: true });
 }
