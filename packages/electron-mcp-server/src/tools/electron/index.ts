@@ -1,10 +1,44 @@
 /**
- * Electron/CDP 공통: 앱 발견, 타겟 조회, JS 실행.
+ * Electron/CDP 공통: 앱 발견, 타겟 조회, JS 실행, CDP 명령.
  * 여러 툴에서 공유하므로 tools/electron/ 으로 두고 index 로 노출.
  * Ports 9222–9225 스캔.
  */
 
 import WebSocket from 'ws';
+
+/** CDP 요청 한 건 보내고 응답 대기. 여러 툴에서 공유. */
+export function sendCdp(
+  ws: WebSocket,
+  id: number,
+  method: string,
+  params?: object
+): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const handler = (raw: Buffer) => {
+      try {
+        const msg = JSON.parse(raw.toString()) as {
+          id?: number;
+          error?: { message: string };
+          result?: unknown;
+        };
+        if (msg.id === id) {
+          ws.off('message', handler);
+          if (msg.error) reject(new Error(msg.error.message));
+          else resolve(msg.result);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    ws.on('message', handler);
+    ws.send(JSON.stringify({ id, method, params: params ?? {} }), (err) => {
+      if (err) {
+        ws.off('message', handler);
+        reject(err);
+      }
+    });
+  });
+}
 
 const PORTS = [9222, 9223, 9224, 9225];
 
@@ -47,31 +81,48 @@ export interface DevToolsTarget {
   type: string;
 }
 
+/** 스캔 실패 시 마지막 원인(디버깅용). */
+let lastScanError: string | undefined;
+
 export async function scanForElectronApps(): Promise<ElectronAppInfo[]> {
   const found: ElectronAppInfo[] = [];
+  lastScanError = undefined;
   for (const port of PORTS) {
     try {
       const res = await fetch(`http://127.0.0.1:${port}/json`, {
         signal: AbortSignal.timeout(2000),
       });
-      if (!res.ok) continue;
-      const targets = (await res.json()) as Array<{
-        id: string;
-        title: string;
-        url: string;
-        type: string;
-        description?: string;
-        webSocketDebuggerUrl?: string;
-      }>;
-      const pageTargets = targets.filter((t) => t.type === 'page');
+      if (!res.ok) {
+        lastScanError = `port ${port}: HTTP ${res.status}`;
+        continue;
+      }
+      const raw = await res.json();
+      const targets = Array.isArray(raw)
+        ? (raw as Array<{
+            id: string;
+            title: string;
+            url: string;
+            type: string;
+            description?: string;
+            webSocketDebuggerUrl?: string;
+          }>)
+        : [];
+      const pageTargets = targets.filter((t) => t && t.type === 'page');
       if (pageTargets.length > 0) {
         found.push({ port, targets: pageTargets });
+        return found;
       }
-    } catch {
-      // skip port
+      lastScanError = `port ${port}: ${targets.length} target(s), 0 with type 'page'`;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      lastScanError = `port ${port}: ${msg}`;
     }
   }
   return found;
+}
+
+export function getLastScanError(): string | undefined {
+  return lastScanError;
 }
 
 export function findMainTarget(
@@ -90,13 +141,15 @@ export async function getElectronWindowInfo(
   try {
     const apps = await scanForElectronApps();
     if (apps.length === 0) {
+      const hint = getLastScanError() ? ` (last try: ${getLastScanError()})` : '';
       return {
         platform: process.platform,
         windows: [],
         totalTargets: 0,
         electronTargets: 0,
         message:
-          'No Electron app with remote debugging found. Start with: electron . --remote-debugging-port=9222',
+          'No Electron app with remote debugging found. Start with: electron . --remote-debugging-port=9222' +
+          hint,
         automationReady: false,
       };
     }
@@ -137,8 +190,10 @@ export async function getElectronWindowInfo(
 export async function findElectronTarget(): Promise<DevToolsTarget> {
   const apps = await scanForElectronApps();
   if (apps.length === 0) {
+    const hint = getLastScanError() ? ` (${getLastScanError()})` : '';
     throw new Error(
-      'No Electron app with remote debugging. Start with: electron . --remote-debugging-port=9222'
+      'No Electron app with remote debugging. Start with: electron . --remote-debugging-port=9222' +
+        hint
     );
   }
   const app = apps[0];
