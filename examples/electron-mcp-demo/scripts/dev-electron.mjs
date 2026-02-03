@@ -15,7 +15,7 @@ process.env.VITE_DEV_SERVER_URL = 'http://localhost:5173';
 const child = spawn(process.execPath, [electronCli, '.'], {
   cwd: root,
   stdio: 'inherit',
-  env: { ...process.env, VITE_DEV_SERVER_URL: process.env.VITE_DEV_SERVER_URL },
+  env: process.env,
 });
 
 child.on('exit', (code) => process.exit(code ?? 0));
