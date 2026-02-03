@@ -28,8 +28,16 @@ export default function App() {
             return (
               <li
                 key={tool.id}
+                role="button"
+                tabIndex={0}
                 data-testid={`sidebar-${tool.id}`}
                 onClick={() => setSelectedId(tool.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedId(tool.id);
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
