@@ -9,7 +9,7 @@
 3. **베이스 브랜치 결정**: 사용자가 베이스 브랜치를 지정하면 (예: "base is main", "base feat/xyz") 그 브랜치를 머지 대상으로 쓴다.
    - **현재 브랜치가 베이스와 같으면** → 현재 브랜치에서 새 브랜치를 만들고, 그 새 브랜치를 head로 하는 PR을 연다 ("베이스와 현재 브랜치가 같을 때" 참고).
    - 그렇지 않으면 지정된 베이스를 쓴다.
-4. **본문 준비**: `branch-summary.md`가 있고 필요한 섹션(목적, 설명, 테스트 방법 등 또는 제목 + 작업 내용)을 채우고 있으면 그걸 PR 본문으로 쓴다. 섹션이 부족하면 채운 뒤 사용한다.
+4. **본문 준비**: `branch-summary.md`가 있고 필요한 섹션(목적, 설명, 테스트 방법 등 또는 제목 + 작업 내용)을 채우고 있으면 그걸 PR 본문으로 쓴다. 섹션이 부족하면 채운 뒤 사용한다. **관련 이슈가 있으면** (로드맵 이슈 #3, 버그 이슈 등) 본문 상단 또는 하단에 `Fixes #N` / `Closes #N` 또는 `관련 이슈: #N`을 **반드시** 넣는다.
 5. **PR 생성 또는 수정**:
    - 열린 PR 없음 → `gh pr create` 시 **반드시** `--assignee @me`(자기 자신 할당), `--label <라벨>`(성격에 맞는 라벨) 포함. 예: `gh pr create --head <branch> --base <base> --title "<title>" --body-file branch-summary.md --assignee @me --label enhancement`
    - 열린 PR 있음 → 본문 수정 (베이스가 지정됐고 PR이 열려 있으면 PATCH로 베이스도 수정).
@@ -51,9 +51,10 @@
 ## 작업 순서
 
 1. **사용자 입력 확인**: 베이스 브랜치가 지정됐으면 위 규칙대로 베이스 설정.
-2. **SSH remote**: origin이 `git@github.com-private:ohah/electron-mcp-server.git`인지 확인; 아니면 `git remote set-url origin git@github.com-private:ohah/electron-mcp-server.git` 실행.
-3. **gh 계정**: 현재 사용자 확인: `gh api user -q .login`. ohah가 아니면 `gh auth switch --hostname github.com --user ohah` 실행하고 이전 로그인을 저장해 나중에 복원.
-4. **GitHub CLI로 PR 생성·수정**:
+2. **이슈 링크 확인**: 이 PR이 특정 이슈(예: #3 로드맵 체크리스트 항목, 버그 이슈)를 다루면 `branch-summary.md`에 `Fixes #N` / `Closes #N` 또는 `관련 이슈: #N`을 추가한 뒤 PR 생성·수정 시 해당 본문을 사용한다.
+3. **SSH remote**: origin이 `git@github.com-private:ohah/electron-mcp-server.git`인지 확인; 아니면 `git remote set-url origin git@github.com-private:ohah/electron-mcp-server.git` 실행.
+4. **gh 계정**: 현재 사용자 확인: `gh api user -q .login`. ohah가 아니면 `gh auth switch --hostname github.com --user ohah` 실행하고 이전 로그인을 저장해 나중에 복원.
+5. **GitHub CLI로 PR 생성·수정**:
    - 브랜치가 이미 push됐으면 → 생성 시 `--head <branch-name>` 사용.
    - 베이스가 지정됐으면 → 생성 시 항상 `--base <base>` 전달, 또는 수정 시 PR이 열려 있으면 PATCH에 베이스 포함.
 
@@ -71,19 +72,19 @@
    gh api repos/ohah/electron-mcp-server/pulls/<PR-number> -X PATCH -f body=@branch-summary.md -f base="<base>"
    ```
 
-5. **Push**: 생성·수정 후 푸시 안 된 커밋이 있으면 push해 PR이 최신 커밋을 반영하도록 한다.
+6. **Push**: 생성·수정 후 푸시 안 된 커밋이 있으면 push해 PR이 최신 커밋을 반영하도록 한다.
 
    ```bash
    git push origin $(git branch --show-current)
    ```
 
-6. **`gh`가 없을 때**: [GitHub CLI](https://cli.github.com/) 설치하거나 브라우저에서 PR 연 뒤 (레포 → Compare & pull request) `branch-summary.md` 내용을 설명란에 붙여넣는다.
+7. **`gh`가 없을 때**: [GitHub CLI](https://cli.github.com/) 설치하거나 브라우저에서 PR 연 뒤 (레포 → Compare & pull request) `branch-summary.md` 내용을 설명란에 붙여넣는다.
 
-7. **라벨**: 생성 시 `gh pr create`에 `--label <name>` 포함 (여러 개 가능). 수정 시 `gh pr edit <PR-number> --add-label <name>`. `gh label list`로 레포 라벨을 확인한 뒤 PR 성격에 맞는 라벨을 **반드시** 선택해 붙인다 (enhancement, bug, documentation 등).
+8. **라벨**: 생성 시 `gh pr create`에 `--label <name>` 포함 (여러 개 가능). 수정 시 `gh pr edit <PR-number> --add-label <name>`. `gh label list`로 레포 라벨을 확인한 뒤 PR 성격에 맞는 라벨을 **반드시** 선택해 붙인다 (enhancement, bug, documentation 등).
 
-8. **담당자(assignee)**: PR 생성 시 `--assignee @me`로 자기 자신을 **반드시** 담당자로 지정한다.
+9. **담당자(assignee)**: PR 생성 시 `--assignee @me`로 자기 자신을 **반드시** 담당자로 지정한다.
 
-9. **gh 계정 복원**: 3단계에서 ohah로 바꿨다면 `gh auth switch --hostname github.com --user <previous-login>`으로 원래 계정 복원.
+10. **gh 계정 복원**: 4단계에서 ohah로 바꿨다면 `gh auth switch --hostname github.com --user <previous-login>`으로 원래 계정 복원.
 
 ## PR 제목 규칙
 

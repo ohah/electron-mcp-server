@@ -41,7 +41,7 @@ electron-mcp-server에서 **Electron 앱(CDP)** 대상으로 동일/유사 기�
 
 ## 디버깅 (Debugging) — 5개
 
-- [ ] `evaluate_script` — 페이지 컨텍스트에서 JavaScript 실행
+- [x] `evaluate_script` — 페이지 컨텍스트에서 JavaScript 실행 (구현 완료)
 - [ ] `get_console_message` — 콘솔 메시지 ID로 단건 조회
 - [ ] `list_console_messages` — 콘솔 메시지 목록
 - [ ] `take_screenshot` — 페이지/요소 스크린샷 (이미 구현됨: `take_screenshot`)
