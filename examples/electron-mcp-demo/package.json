@@ -24,7 +24,6 @@
     "@vitejs/plugin-react": "^4.2.0",
     "bunup": "^0.16.22",
     "concurrently": "^9.1.0",
-    "cross-env": "^7.0.3",
     "electron": "22.3.27",
     "kill-port": "^2.0.0",
     "typescript": "^5.9.3",
