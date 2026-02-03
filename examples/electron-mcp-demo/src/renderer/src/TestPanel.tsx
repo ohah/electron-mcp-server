@@ -22,6 +22,20 @@ const inputStyle: React.CSSProperties = {
   marginTop: 4,
 };
 
+/** 테스트 성공/상태를 사람이 한눈에 볼 수 있는 피드백 박스 */
+const feedbackBoxStyle: React.CSSProperties = {
+  marginTop: 16,
+  padding: '16px 20px',
+  borderRadius: 12,
+  border: '2px solid #198754',
+  background: '#d1e7dd',
+  color: '#0f5132',
+  fontSize: 18,
+  fontWeight: 700,
+  display: 'inline-block',
+  minWidth: 280,
+};
+
 interface TestPanelProps {
   toolId: string;
 }
@@ -30,7 +44,12 @@ export default function TestPanel({ toolId }: TestPanelProps) {
   const [clickCount, setClickCount] = React.useState(0);
   const [fetchStatus, setFetchStatus] = React.useState<string | null>(null);
   const [fillValue, setFillValue] = React.useState('');
+  const [formName, setFormName] = React.useState('');
+  const [formEmail, setFormEmail] = React.useState('');
   const [keyLog, setKeyLog] = React.useState<string[]>([]);
+  const [hovered, setHovered] = React.useState(false);
+  const [dragDropped, setDragDropped] = React.useState(false);
+  const [uploadedFileName, setUploadedFileName] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -66,6 +85,102 @@ export default function TestPanel({ toolId }: TestPanelProps) {
 
   const renderContent = () => {
     switch (toolId) {
+      case 'input_automation':
+        return (
+          <section style={sectionStyle}>
+            <p>
+              MCP(Cursor 등)에서 아래 도구를 호출해 입력 자동화를 테스트하세요. 먼저 왼쪽에서 해당
+              패널을 선택한 뒤, 아래 인자로 도구를 호출하면 해당 영역에 동작이 반영됩니다.
+            </p>
+            <table
+              style={{
+                borderCollapse: 'collapse',
+                fontSize: 13,
+                width: '100%',
+                maxWidth: 720,
+              }}
+            >
+              <thead>
+                <tr style={{ borderBottom: '2px solid #333', textAlign: 'left' }}>
+                  <th style={{ padding: '8px 12px' }}>도구</th>
+                  <th style={{ padding: '8px 12px' }}>selector / uid</th>
+                  <th style={{ padding: '8px 12px' }}>예시 인자 (MCP 호출용)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px' }}>click</td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <code>[data-testid="demo-click-button"]</code>
+                  </td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
+                    {`{ "selector": "[data-testid=\\"demo-click-button\\"]" }`}
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px' }}>hover</td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <code>[data-testid="demo-hover-area"]</code>
+                  </td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
+                    {`{ "uid": "[data-testid=\\"demo-hover-area\\"]" }`}
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px' }}>fill</td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <code>[data-testid="demo-fill-input"]</code>
+                  </td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
+                    {`{ "uid": "...", "value": "hello" }`} (uid는 take_snapshot 후 또는 selector)
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px' }}>fill_form</td>
+                  <td style={{ padding: '8px 12px' }}>name, email 필드</td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
+                    {`{ "elements": [{ "uid": "...", "value": "이름" }, ...] }`}
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px' }}>handle_dialog</td>
+                  <td style={{ padding: '8px 12px' }}>Alert/Confirm/Prompt 버튼 클릭 후</td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
+                    {`{ "action": "accept" }`} 또는 {`{ "action": "dismiss" }`},{' '}
+                    {`{ "action": "accept", "promptText": "입력" }`}
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px' }}>press_key</td>
+                  <td style={{ padding: '8px 12px' }}>입력란 포커스 후</td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
+                    {`{ "key": "Enter" }`}, {`{ "key": "Control+A" }`}
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px' }}>upload_file</td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <code>[data-testid="demo-upload-file"]</code>
+                  </td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
+                    {`{ "uid": "...", "filePath": "C:\\\\path\\\\file.txt" }`}
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #ddd', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px' }}>take_snapshot</td>
+                  <td style={{ padding: '8px 12px' }}>—</td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12 }}>
+                    {`{}`} → 반환된 uid를 click/fill 등에 사용
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p style={{ marginTop: 16, fontSize: 14, color: '#555' }}>
+              <strong>순서:</strong> 1) 왼쪽에서 해당 도구 패널 선택 → 2) MCP로 도구 호출 → 3)
+              화면에서 결과 확인.
+            </p>
+          </section>
+        );
       case 'get_electron_window_info':
         return (
           <section style={sectionStyle}>
@@ -87,7 +202,8 @@ export default function TestPanel({ toolId }: TestPanelProps) {
         return (
           <section style={sectionStyle}>
             <p>
-              MCP 도구 <code>click</code>으로 아래 버튼을 클릭하세요. (selector: data-testid)
+              MCP 도구 <code>click</code>으로 아래 버튼을 클릭하세요. (selector 또는 take_snapshot
+              uid)
             </p>
             <button
               type="button"
@@ -97,38 +213,66 @@ export default function TestPanel({ toolId }: TestPanelProps) {
             >
               Click me (count: {clickCount})
             </button>
+            {clickCount > 0 && (
+              <div style={feedbackBoxStyle} role="status" aria-live="polite">
+                ✓ 클릭됨 — 클릭 횟수: {clickCount} (MCP click 도구 정상 동작)
+              </div>
+            )}
           </section>
         );
       case 'drag':
         return (
           <section style={sectionStyle}>
             <p>
-              <code>drag</code> 테스트: MCP로 드래그 앤 드롭을 실행하세요. (스텁일 수 있음)
+              MCP 도구 <code>drag</code>로 소스 → 대상으로 드래그하세요. 드롭되면 아래에 결과가
+              표시됩니다.
             </p>
             <div
               data-testid="demo-drag-source"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', 'demo');
+              }}
               style={{
-                padding: 16,
+                padding: 20,
                 background: '#e8e8e8',
                 display: 'inline-block',
-                marginRight: 8,
+                marginRight: 12,
+                border: '2px solid #666',
+                borderRadius: 8,
+                cursor: 'grab',
               }}
             >
               드래그 소스
             </div>
             <div
               data-testid="demo-drag-target"
-              style={{ padding: 16, background: '#d0d0d0', display: 'inline-block' }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => setDragDropped(true)}
+              style={{
+                padding: 20,
+                background: dragDropped ? '#d1e7dd' : '#d0d0d0',
+                border: `2px solid ${dragDropped ? '#198754' : '#999'}`,
+                borderRadius: 8,
+                display: 'inline-block',
+                minWidth: 120,
+              }}
             >
               드롭 대상
             </div>
+            {dragDropped && (
+              <div style={feedbackBoxStyle} role="status" aria-live="polite">
+                ✓ 드롭 완료 — MCP drag 도구 정상 동작
+              </div>
+            )}
           </section>
         );
       case 'fill':
         return (
           <section style={sectionStyle}>
             <p>
-              MCP 도구 <code>fill</code>으로 아래 입력란에 값을 채우세요.
+              MCP 도구 <code>fill</code>으로 아래 입력란에 값을 채우세요. (uid 또는 selector{' '}
+              <code>[data-testid="demo-fill-input"]</code>)
             </p>
             <input
               type="text"
@@ -138,36 +282,86 @@ export default function TestPanel({ toolId }: TestPanelProps) {
               onChange={(e) => setFillValue(e.target.value)}
               style={{ ...inputStyle, minWidth: 200 }}
             />
+            {fillValue && (
+              <div style={feedbackBoxStyle} role="status" aria-live="polite">
+                ✓ 채워짐 — 현재 값: {fillValue}
+              </div>
+            )}
           </section>
         );
       case 'fill_form':
         return (
           <section style={sectionStyle}>
             <p>
-              <code>fill_form</code>으로 여러 필드를 한 번에 채우세요. (스텁일 수 있음)
+              MCP 도구 <code>fill_form</code>으로 아래 필드를 한 번에 채우세요. elements에 uid 또는
+              selector 사용.
             </p>
             <div>
-              <input data-testid="demo-form-name" placeholder="이름" style={inputStyle} />
+              <input
+                data-testid="demo-form-name"
+                placeholder="이름"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                style={inputStyle}
+              />
               <input
                 data-testid="demo-form-email"
                 placeholder="이메일"
                 type="email"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
                 style={inputStyle}
               />
             </div>
+            {(formName || formEmail) && (
+              <div style={feedbackBoxStyle} role="status" aria-live="polite">
+                ✓ 폼 채워짐 — 이름: {formName || '—'}, 이메일: {formEmail || '—'}
+              </div>
+            )}
           </section>
         );
       case 'handle_dialog':
         return (
           <section style={sectionStyle}>
             <p>
-              alert/confirm/prompt 테스트. 버튼 클릭 후 MCP <code>handle_dialog</code>로 처리하세요.
+              아래 버튼을 누르면 다이얼로그가 뜹니다. MCP <code>handle_dialog</code>로 accept 또는
+              dismiss 하세요.
             </p>
-            <button type="button" style={buttonStyle} onClick={() => alert('Alert 테스트')}>
+            <div
+              style={{
+                ...feedbackBoxStyle,
+                borderColor: '#0d6efd',
+                background: '#cfe2ff',
+                color: '#084298',
+                marginBottom: 16,
+              }}
+              role="status"
+            >
+              다이얼로그가 뜨면 → MCP에서 handle_dialog(accept 또는 dismiss) 호출
+            </div>
+            <button
+              type="button"
+              data-testid="demo-alert-button"
+              style={buttonStyle}
+              onClick={() => alert('Alert 테스트')}
+            >
               Alert
             </button>
-            <button type="button" style={buttonStyle} onClick={() => confirm('Confirm?')}>
+            <button
+              type="button"
+              data-testid="demo-confirm-button"
+              style={buttonStyle}
+              onClick={() => confirm('Confirm?')}
+            >
               Confirm
+            </button>
+            <button
+              type="button"
+              data-testid="demo-prompt-button"
+              style={buttonStyle}
+              onClick={() => prompt('Prompt 테스트', '기본값')}
+            >
+              Prompt
             </button>
           </section>
         );
@@ -175,14 +369,34 @@ export default function TestPanel({ toolId }: TestPanelProps) {
         return (
           <section style={sectionStyle}>
             <p>
-              MCP <code>hover</code>로 아래 영역에 마우스를 올리세요.
+              MCP <code>hover</code>로 아래 영역에 마우스를 올리세요. 영역에 마우스가 오면 색이
+              바뀌고 메시지가 나타납니다.
             </p>
             <div
               data-testid="demo-hover-area"
-              style={{ padding: 24, background: '#eee', display: 'inline-block' }}
+              onMouseEnter={() => setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+              style={{
+                padding: 28,
+                background: hovered ? '#d1e7dd' : '#eee',
+                border: `3px solid ${hovered ? '#198754' : '#ccc'}`,
+                borderRadius: 12,
+                display: 'inline-block',
+                minWidth: 200,
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
             >
-              Hover 영역
+              <span
+                style={{ color: hovered ? '#0f5132' : 'inherit', fontWeight: hovered ? 700 : 400 }}
+              >
+                Hover 영역 (마우스를 올리거나 MCP hover 호출)
+              </span>
             </div>
+            {hovered && (
+              <div style={feedbackBoxStyle} role="status" aria-live="polite">
+                ✓ 호버 감지됨 — MCP hover 도구 또는 마우스 정상 동작
+              </div>
+            )}
           </section>
         );
       case 'press_key':
@@ -193,13 +407,31 @@ export default function TestPanel({ toolId }: TestPanelProps) {
             </p>
             <input
               data-testid="demo-press-key-input"
-              placeholder="포커스 후 키 입력"
-              style={inputStyle}
+              placeholder="포커스 후 키 입력 (또는 MCP press_key 호출)"
+              style={{ ...inputStyle, minWidth: 280 }}
               readOnly
               onFocus={() => setKeyLog([])}
             />
             {keyLog.length > 0 && (
-              <pre style={{ marginTop: 8, fontSize: 12 }}>{keyLog.join('\n')}</pre>
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  background: '#f8f9fa',
+                  border: '2px solid #198754',
+                  borderRadius: 12,
+                  minWidth: 260,
+                }}
+                role="status"
+                aria-live="polite"
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f5132', marginBottom: 8 }}>
+                  ✓ 최근 키 입력 (가시성 테스트)
+                </div>
+                <pre style={{ margin: 0, fontSize: 16, fontFamily: 'monospace' }}>
+                  {keyLog.join('\n')}
+                </pre>
+              </div>
             )}
           </section>
         );
@@ -207,9 +439,21 @@ export default function TestPanel({ toolId }: TestPanelProps) {
         return (
           <section style={sectionStyle}>
             <p>
-              <code>upload_file</code> 테스트. (스텁일 수 있음)
+              MCP <code>upload_file</code>으로 파일을 설정하거나, 아래에서 직접 선택하세요.
             </p>
-            <input type="file" data-testid="demo-upload-file" />
+            <input
+              type="file"
+              data-testid="demo-upload-file"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                setUploadedFileName(f ? f.name : null);
+              }}
+            />
+            {uploadedFileName && (
+              <div style={feedbackBoxStyle} role="status" aria-live="polite">
+                ✓ 업로드됨: {uploadedFileName}
+              </div>
+            )}
           </section>
         );
       case 'evaluate_script':
@@ -366,9 +610,21 @@ export default function TestPanel({ toolId }: TestPanelProps) {
               Fetch jsonplaceholder
             </button>
             {fetchStatus != null && (
-              <p style={{ marginTop: 8 }}>
-                <small>{fetchStatus}</small>
-              </p>
+              <div
+                style={{
+                  ...feedbackBoxStyle,
+                  ...(fetchStatus.startsWith('error')
+                    ? {
+                        background: '#f8d7da',
+                        border: '2px solid #dc3545',
+                        color: '#842029',
+                      }
+                    : {}),
+                }}
+                role="status"
+              >
+                {fetchStatus}
+              </div>
             )}
           </section>
         );
