@@ -24,7 +24,7 @@ const takeScreenshotSchema = z.object({
       'Specific window title to screenshot (optional). Matches when page title includes this string.'
     ),
   format: z.enum(['png', 'jpeg']).optional().default('png').describe('Image format'),
-  quality: z.number().min(0).max(100).optional().describe('JPEG quality (1–100)'),
+  quality: z.number().min(1).max(100).optional().describe('JPEG quality (1–100)'),
 });
 
 /** 레퍼런스와 동일: 스크린샷 저장 경로가 허용된 위치인지 검사 */

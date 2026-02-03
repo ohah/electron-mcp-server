@@ -330,30 +330,26 @@ export function registerInputTools(server: McpServer): void {
       });
       await new Promise((r) => setTimeout(r, 150));
       const verifyResult = await (async () => {
-        const ws = await (async () => {
-          const { WebSocket } = await import('ws');
-          const t = await findElectronTarget();
-          const w = new WebSocket(t.webSocketDebuggerUrl);
-          await new Promise<void>((resolve, reject) => {
-            w.once('open', () => resolve());
-            w.once('error', reject);
-          });
-          return { ws: w, target };
-        })();
+        const { WebSocket } = await import('ws');
+        const conn = new WebSocket(target.webSocketDebuggerUrl);
+        await new Promise<void>((resolve, reject) => {
+          conn.once('open', () => resolve());
+          conn.once('error', reject);
+        });
         try {
-          await sendCdp(ws.ws, 'Runtime.enable');
+          await sendCdp(conn, 'Runtime.enable');
           const expr = `(function(){
           var main = document.querySelector('main');
           return main ? main.innerText : document.body.innerText;
         })()`;
-          const r = (await sendCdp(ws.ws, 'Runtime.evaluate', {
+          const r = (await sendCdp(conn, 'Runtime.evaluate', {
             expression: expr,
             returnByValue: true,
           })) as { result?: { type?: string; value?: string } };
           const text = r?.result?.type === 'string' ? (r.result.value ?? '') : '';
           return text.includes('드롭 완료') || text.includes('드롭됨');
         } finally {
-          ws.ws.close();
+          conn.close();
         }
       })();
       const lines = [
