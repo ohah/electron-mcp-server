@@ -16,7 +16,7 @@ electron-mcp-server에서 **Electron 앱(CDP)** 대상으로 동일/유사 기�
 
 ## 내비게이션 (Navigation automation) — 6개
 
-- [ ] `close_page` — 페이지 인덱스로 탭/페이지 닫기 (CDP 단독 모드: 안내만 반환)
+- [ ] `close_page` — `pageId`(페이지 ID)로 탭/페이지 닫기 (CDP 단독 모드: 안내만 반환)
 - [x] `list_pages` — 열린 페이지 목록 조회 (구현 완료)
 - [x] `navigate_page` — URL 이동 / 뒤로·앞으로 / 새로고침 (구현 완료)
 - [ ] `new_page` — 새 페이지(탭) 열기 (CDP 단독 모드: 안내만 반환)

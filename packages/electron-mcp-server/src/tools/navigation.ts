@@ -49,7 +49,10 @@ const closePageSchema = z.object({
 });
 
 const waitForSchema = z.object({
-  text: z.string().describe('페이지에 나타날 때까지 기다릴 텍스트'),
+  text: z
+    .string()
+    .min(1, 'text must be non-empty')
+    .describe('페이지에 나타날 때까지 기다릴 텍스트'),
   timeout: z.number().optional().default(30_000).describe('대기 타임아웃(ms)'),
 });
 
@@ -274,7 +277,7 @@ export function registerNavigationTools(server: McpServer): void {
     'close_page',
     {
       description:
-        '페이지 인덱스(탭/창) 닫기. CDP 단독 모드에서는 앱이 창을 닫는 API를 노출해야 함.',
+        '페이지 ID(pageId)로 지정된 탭/창 닫기. pageId 값은 list_pages 결과의 id를 사용. CDP 단독 모드에서는 앱이 창을 닫는 API를 노출해야 함.',
       inputSchema: closePageSchema,
     },
     async (args: unknown) => {
