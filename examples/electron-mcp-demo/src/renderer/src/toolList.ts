@@ -10,12 +10,21 @@ export interface ToolItem {
 
 /** 이슈 #3 기준 구현 완료된 도구 id (사이드바에 ✓ 표시) */
 export const IMPLEMENTED_IDS = new Set([
+  'input_automation',
   'get_electron_window_info',
   'send_command_to_electron',
   'click',
+  'drag',
+  'fill',
+  'fill_form',
+  // 'handle_dialog' — Electron 리모트에서 미지원, 스펙에서 제외
+  'hover',
+  'press_key',
+  'upload_file',
+  'evaluate_script',
+  'take_snapshot',
   'list_console_messages',
   'get_console_message',
-  'evaluate_script',
   'list_network_requests',
   'get_network_request',
   'list_pages',
@@ -24,7 +33,11 @@ export const IMPLEMENTED_IDS = new Set([
   'wait_for',
 ]);
 
+/** 테스트 도구는 있으나 MCP 지원에서 제외된 항목 (사이드바에 취소선) */
+export const DISABLED_IDS = new Set(['handle_dialog']);
+
 export const TOOLS: ToolItem[] = [
+  { id: 'input_automation', label: '입력 자동화 (한눈에)' },
   { id: 'get_electron_window_info', label: 'get_electron_window_info' },
   { id: 'send_command_to_electron', label: 'send_command_to_electron' },
   { id: 'click', label: 'click' },

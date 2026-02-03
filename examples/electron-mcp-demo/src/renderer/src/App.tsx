@@ -1,5 +1,5 @@
 import React from 'react';
-import { TOOLS, IMPLEMENTED_IDS } from './toolList';
+import { TOOLS, IMPLEMENTED_IDS, DISABLED_IDS } from './toolList';
 import TestPanel from './TestPanel';
 
 const SIDEBAR_WIDTH = 280;
@@ -68,7 +68,17 @@ export default function App() {
                 >
                   {implemented ? '✓' : ''}
                 </span>
-                <span style={{ fontSize: 13, wordBreak: 'break-word' }}>{tool.label}</span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    wordBreak: 'break-word',
+                    ...(DISABLED_IDS.has(tool.id)
+                      ? { textDecoration: 'line-through', color: '#999' }
+                      : {}),
+                  }}
+                >
+                  {tool.label}
+                </span>
               </li>
             );
           })}
