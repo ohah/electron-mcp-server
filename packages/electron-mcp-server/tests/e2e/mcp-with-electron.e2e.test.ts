@@ -300,7 +300,13 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
   });
 
   test('tools/call list_network_requests → 상시 수집 후 목록·상세 조회', async () => {
-    // CI/헤드리스: click 도구 대신 evaluate_script로 사이드바·버튼 클릭해 패널 노출·fetch 트리거
+    // 수집을 먼저 시작해야 함. list_network_requests 첫 호출이 CDP 연결·Network.enable을 켬.
+    await callMcp('tools/call', {
+      name: 'list_network_requests',
+      arguments: {},
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    // 그 다음 패널 노출 후 Fetch 트리거
     await callMcp('tools/call', {
       name: 'evaluate_script',
       arguments: {
@@ -318,7 +324,7 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
         args: [],
       },
     });
-    // CI에서 CDP 연결·수집이 늦을 수 있으므로 재시도(최대 3회, 600ms 간격)
+    // 요청 캡처 대기 후 목록 조회(재시도 최대 3회)
     let list: Array<{ requestId: string; url: string; method: string }> = [];
     for (let attempt = 0; attempt < 3; attempt++) {
       await new Promise((r) => setTimeout(r, attempt === 0 ? 1200 : 600));
@@ -331,7 +337,7 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
         (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
       const text = content.find((c) => c.type === 'text')?.text ?? '';
       list = JSON.parse(text) as Array<{ requestId: string; url: string; method: string }>;
-      if (Array.isArray(list) && list.length > 0) break;
+      if (Array.isArray(list) && list.some((r) => r.url.includes('httpbin'))) break;
     }
     expect(Array.isArray(list)).toBe(true);
     expect(list.length).toBeGreaterThan(0);
