@@ -37,7 +37,7 @@ await Promise.all([
     minify: false,
   }),
   esbuild.build({
-    entryPoints: [path.join(srcDir, 'mcp-server', 'index.ts')],
+    entryPoints: [path.join(srcDir, 'index.ts')],
     bundle: true,
     platform: 'node',
     format: 'cjs',

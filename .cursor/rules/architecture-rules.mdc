@@ -1,0 +1,35 @@
+---
+description: MCP 서버 소스 구조(tools 중심, utils 비사용) 및 코드 분리 원칙
+alwaysApply: false
+---
+
+# 아키텍처 규칙 (Tools 중심)
+
+MCP 서버 패키지(`packages/electron-mcp-server/src`) 구조와 코드 분리 시 적용한다.
+
+## 1. utils 사용 금지
+
+- **툴 전용·공유 로직 모두 `tools/` 아래에 둔다.** `utils/` 같은 별도 유틸 폴더를 만들지 않는다.
+- 여러 툴에서 쓰는 공통 로직이 있으면, **tools 안에 하위 폴더를 만들고 `index.ts`로 노출**한다.
+  - 예: `tools/electron/index.ts` — CDP/Electron 발견·실행 등 여러 툴이 공유하는 로직.
+
+## 2. tools 구조
+
+- **한 툴 = 한 파일** (예: `tools/window-info.ts`, `tools/screenshot.ts`, `tools/command.ts`).
+- **한 툴(또는 공유 모듈)의 코드가 커지면**:
+  - `tools/<이름>/` 폴더를 만들고,
+  - `index.ts`에서 툴 등록·외부에 필요한 것만 export 하고,
+  - 나머지 구현은 같은 폴더 안의 다른 파일로 쪼갠다.
+- 예시:
+  - `tools/electron/index.ts` — 스캔, 타겟, executeInElectron 등 export.
+  - `tools/screenshot.ts` — take_screenshot 툴; 필요 시 나중에 `tools/screenshot/index.ts` + 내부 파일로 분리.
+
+## 3. 정리
+
+| 상황 | 위치 |
+|------|------|
+| 단일 MCP 툴 (코드 적음) | `tools/<툴이름>.ts` |
+| 단일 툴이 커짐 | `tools/<툴이름>/index.ts` + 같은 폴더 내 파일 분리 |
+| 여러 툴이 쓰는 공통 로직 | `tools/<공통이름>/index.ts` (예: `tools/electron/`) |
+
+utils 폴더는 만들지 않는다.

@@ -44,8 +44,8 @@ electron-mcp-server/
 ├── dist/                # 빌드 산출물 (gitignore)
 ├── .cursor/
 │   ├── commands/        # commit, pr, init-pr, review, review-apply, copilot-review
-│   ├── rules/           # commit-rules.mdc
-│   └── agents/          # sub-agent-mcp, sub-agent-mcp-setup, sub-agent-review
+│   ├── rules/           # commit-rules.mdc, architecture-rules.mdc
+│   └── agents/          # sub-agent-mcp, sub-agent-mcp-setup, sub-agent-review, sub-agent-architecture
 ├── .mise.toml           # mise 도구 버전
 ├── .oxfmtrc.json       # oxfmt 설정
 ├── .oxlintrc.json      # oxlint 설정
@@ -69,6 +69,12 @@ bun run build
 bun run mcp                  # Node만 사용, stdio MCP 서버
 bun run start                # Electron 앱
 ```
+
+## 아키텍처 (MCP 서버 소스 구조)
+
+- **tools 중심, utils 비사용**: 툴 전용·공통 로직 모두 `packages/electron-mcp-server/src/tools/` 아래에 둔다. 코드가 커지면 `tools/<이름>/` 폴더를 만들고 `index.ts` 로 분리.
+- **룰**: `.cursor/rules/architecture-rules.mdc`
+- **아키텍처 관리자**: `.cursor/agents/sub-agent-architecture.mdc` — 구조 설계·리팩터링·새 툴 추가 시 적용.
 
 ## 세팅 문제 해결 (Bun 모노레포, npx·.bin·심링크)
 
