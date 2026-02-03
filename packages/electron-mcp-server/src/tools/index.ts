@@ -15,6 +15,8 @@ import { registerPerformanceTools } from './performance';
 import { registerNetworkTools } from './network';
 import { registerEvaluateScript } from './evaluate-script';
 import { registerDebuggingStubTools } from './debugging-stub';
+import { registerTakeSnapshot } from './snapshot';
+import { registerTakeScreenshot } from './screenshot';
 
 export function registerAllTools(server: McpServer): void {
   registerGetElectronWindowInfo(server);
@@ -26,5 +28,7 @@ export function registerAllTools(server: McpServer): void {
   registerPerformanceTools(server);
   registerNetworkTools(server);
   registerEvaluateScript(server);
+  registerTakeSnapshot(server);
+  registerTakeScreenshot(server);
   registerDebuggingStubTools(server);
 }
