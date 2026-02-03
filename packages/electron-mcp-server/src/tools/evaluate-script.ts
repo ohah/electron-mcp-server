@@ -41,7 +41,7 @@ export function registerEvaluateScript(server: McpServer): void {
     },
     async (args: unknown) => {
       const { function: fnStr, args: fnArgs } = schema.parse(args);
-      const expression = buildExpression(fnStr, fnArgs ?? []);
+      const expression = buildExpression(fnStr, fnArgs);
       const text = await executeInElectron(expression);
       return {
         content: [{ type: 'text' as const, text }],
