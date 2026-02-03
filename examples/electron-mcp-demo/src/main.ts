@@ -18,8 +18,8 @@ app.commandLine.appendSwitch('remote-debugging-port', debugPort);
 
 function createWindow(url?: string): electron.BrowserWindow {
   const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1024,
+    height: 768,
     webPreferences: {
       preload: path.join(distDir, 'preload.js'),
       nodeIntegration: false,

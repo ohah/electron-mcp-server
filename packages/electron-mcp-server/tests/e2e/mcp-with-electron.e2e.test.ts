@@ -167,6 +167,7 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     expect(names).toContain('list_console_messages');
     expect(names).toContain('get_console_message');
     expect(names).toContain('click');
+    expect(names).toContain('evaluate_script');
   });
 
   test('tools/call get_electron_window_info → automationReady', async () => {
@@ -214,5 +215,69 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     expect(text).toBeDefined();
     expect(text.length).toBeGreaterThan(0);
     expect(text).toMatch(/Electron MCP Demo|console-api/);
+  });
+
+  test('tools/call evaluate_script → document.title 반환', async () => {
+    const res = await callMcp('tools/call', {
+      name: 'evaluate_script',
+      arguments: {
+        function: 'function() { return document.title; }',
+        args: [],
+      },
+    });
+    expect(res.error).toBeUndefined();
+    const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const text = content.find((c) => c.type === 'text')?.text ?? '';
+    expect(text.trim()).toBe('Electron MCP Demo');
+  });
+
+  test('tools/call evaluate_script → 인자 전달 및 반환값(숫자)', async () => {
+    const res = await callMcp('tools/call', {
+      name: 'evaluate_script',
+      arguments: {
+        function: 'function(a, b) { return a + b; }',
+        args: [10, 32],
+      },
+    });
+    expect(res.error).toBeUndefined();
+    const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const text = content.find((c) => c.type === 'text')?.text ?? '';
+    expect(text.trim()).toBe('42');
+  });
+
+  test('tools/call evaluate_script → DOM 추가 후 값 읽기', async () => {
+    const resAdd = await callMcp('tools/call', {
+      name: 'evaluate_script',
+      arguments: {
+        function: `function() {
+          var el = document.getElementById('e2e-eval-input');
+          if (el) el.remove();
+          var input = document.createElement('input');
+          input.id = 'e2e-eval-input';
+          input.value = 'e2e-value';
+          document.body.appendChild(input);
+          return 'added';
+        }`,
+        args: [],
+      },
+    });
+    expect(resAdd.error).toBeUndefined();
+    const contentAdd =
+      (resAdd.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    expect(contentAdd.find((c) => c.type === 'text')?.text?.trim()).toBe('added');
+
+    const resRead = await callMcp('tools/call', {
+      name: 'evaluate_script',
+      arguments: {
+        function:
+          "function() { var el = document.getElementById('e2e-eval-input'); return el ? el.value : ''; }",
+        args: [],
+      },
+    });
+    expect(resRead.error).toBeUndefined();
+    const contentRead =
+      (resRead.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const textRead = contentRead.find((c) => c.type === 'text')?.text ?? '';
+    expect(textRead.trim()).toBe('e2e-value');
   });
 });
