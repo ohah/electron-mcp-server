@@ -40,7 +40,6 @@
       },
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.25.0",
-        "playwright": "^1.49.0",
         "ws": "^8.18.0",
         "zod": "^3.25.0",
       },
@@ -48,6 +47,7 @@
         "@types/node": "^20.10.0",
         "@types/ws": "^8.5.0",
         "bunup": "^0.16.22",
+        "playwright": "^1.49.0",
         "typescript": "^5.9.3",
       },
     },

@@ -1,7 +1,19 @@
 {
   "name": "@ohah/electron-mcp-server",
-  "version": "1.0.0",
+  "version": "0.1.0-rc.1",
   "description": "MCP server (Node bin) for Electron app automation via CDP. Use with any Electron app running --remote-debugging-port=9222.",
+  "keywords": [
+    "automation",
+    "cdp",
+    "electron",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ohah/electron-mcp-server.git"
+  },
   "bin": {
     "electron-mcp-server": "dist/index.js"
   },
@@ -9,8 +21,12 @@
     "dist"
   ],
   "main": "dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "bunup",
+    "build": "bunup && node scripts/chmod-dist.mjs",
+    "prepublishOnly": "bun run build",
     "mcp:run": "node dist/index.js",
     "mcp": "bun run build && node dist/index.js",
     "test": "bun test",
@@ -21,7 +37,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.0",
-    "playwright": "^1.49.0",
     "ws": "^8.18.0",
     "zod": "^3.25.0"
   },
@@ -29,6 +44,7 @@
     "@types/node": "^20.10.0",
     "@types/ws": "^8.5.0",
     "bunup": "^0.16.22",
+    "playwright": "^1.49.0",
     "typescript": "^5.9.3"
   }
 }
