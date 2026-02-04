@@ -11,6 +11,22 @@ let nextCdpId = 1;
 
 const CDP_REQUEST_TIMEOUT_MS = 30_000;
 
+/** CDP WebSocket 연결을 열고, 콜백 실행 후 연결 종료. 여러 툴에서 공통 사용. */
+export function withCdpWs<T>(
+  target: DevToolsTarget,
+  fn: (ws: WebSocket) => Promise<T>
+): Promise<T> {
+  const ws = new WebSocket(target.webSocketDebuggerUrl);
+  return new Promise((resolve, reject) => {
+    ws.once('open', () => {
+      fn(ws)
+        .then(resolve, reject)
+        .finally(() => ws.close());
+    });
+    ws.once('error', reject);
+  });
+}
+
 /** CDP 요청 한 건 보내고 응답 대기. id는 내부 카운터로 자동 부여. timeout·close/error 시 reject. */
 export function sendCdp(ws: WebSocket, method: string, params?: object): Promise<unknown> {
   const id = nextCdpId++;

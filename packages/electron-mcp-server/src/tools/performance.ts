@@ -12,7 +12,7 @@ import zlib from 'node:zlib';
 import { z } from 'zod';
 import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { findElectronTarget, sendCdp, type DevToolsTarget } from './electron';
+import { findElectronTarget, sendCdp, withCdpWs } from './electron';
 
 function gzipAsync(buf: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -34,6 +34,10 @@ const TRACE_CATEGORIES =
   'disabled-by-default-v8.cpu_profiler,disabled-by-default-v8.cpu_profiler.hires,' +
   'latencyInfo,loading,disabled-by-default-lighthouse,v8.execute,v8';
 
+const RELOAD_WAIT_MS = 1500;
+const AUTO_STOP_TRACE_DURATION_MS = 5_000;
+const TRACING_COMPLETE_TIMEOUT_MS = 60_000;
+
 let isTracing = false;
 let lastTraceFilePath: string | null = null;
 let lastTraceEventsCount = 0;
@@ -50,7 +54,7 @@ const startTraceSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      '트레이스 시작 후 선택된 페이지를 자동 리로드할지. reload 또는 autoStop 사용 시 먼저 navigate_page로 URL을 맞춘 뒤 트레이스를 시작하세요.'
+      '트레이스 시작 후 현재 선택된 페이지를 자동으로 다시 로드할지 여부입니다. 다른 URL을 계측하고 싶다면 먼저 navigate_page로 해당 URL로 이동한 뒤 이 도구를 호출하세요. reload=true인 경우 이동한 URL로 자동 새로고침이 수행됩니다.'
     ),
   autoStop: z.boolean().optional().describe('트레이스 녹화를 자동으로 중지할지 여부'),
   filePath: filePathSchema,
@@ -69,18 +73,6 @@ const analyzeInsightSchema = z.object({
     .describe('상세 정보를 얻을 인사이트 이름. 예: "DocumentLatency", "LCPBreakdown"'),
 });
 
-function withCdpWs<T>(target: DevToolsTarget, fn: (ws: WebSocket) => Promise<T>): Promise<T> {
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
-  return new Promise((resolve, reject) => {
-    ws.once('open', () => {
-      fn(ws)
-        .then(resolve, reject)
-        .finally(() => ws.close());
-    });
-    ws.once('error', reject);
-  });
-}
-
 /** Tracing.end 호출 후 dataCollected/tracingComplete 수신해 traceEvents 배열 반환 */
 function stopTracingAndCollectEvents(ws: WebSocket): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
@@ -88,7 +80,7 @@ function stopTracingAndCollectEvents(ws: WebSocket): Promise<unknown[]> {
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error('Tracing end timed out (60s)'));
-    }, 60_000);
+    }, TRACING_COMPLETE_TIMEOUT_MS);
 
     const cleanup = () => {
       clearTimeout(timeout);
@@ -181,23 +173,36 @@ export function registerPerformanceTools(server: McpServer): void {
           ],
         };
       }
+      isTracing = true;
 
       const target = await findElectronTarget();
-      const pageUrl = target.url;
+      const pageUrl = target.url ?? '';
+
+      if (params.reload && (!pageUrl || pageUrl.trim() === '' || pageUrl === 'about:blank')) {
+        isTracing = false;
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'reload 사용 시 먼저 navigate_page로 계측할 URL로 이동한 뒤 트레이스를 시작하세요. 현재 페이지 URL이 비어 있거나 about:blank입니다.',
+            },
+          ],
+        };
+      }
 
       if (params.autoStop) {
-        // 한 연결 안에서: (reload 시 about:blank 이동) → Tracing.start → (reload 시 pageUrl 이동) → 5초 대기 → 중지 → 이벤트 수집
+        // 한 연결 안에서: (reload 시 about:blank 이동) → Tracing.start → (reload 시 pageUrl 이동) → 대기 → 중지 → 이벤트 수집
         const result = await withCdpWs(target, async (ws) => {
           if (params.reload) {
             await sendCdp(ws, 'Page.enable');
             await sendCdp(ws, 'Page.navigate', { url: 'about:blank' });
-            await new Promise((r) => setTimeout(r, 1500));
+            await new Promise((r) => setTimeout(r, RELOAD_WAIT_MS));
           }
           await sendCdp(ws, 'Tracing.start', { categories: TRACE_CATEGORIES });
           if (params.reload && pageUrl) {
             await sendCdp(ws, 'Page.navigate', { url: pageUrl });
           }
-          await new Promise((resolve) => setTimeout(resolve, 5_000));
+          await new Promise((resolve) => setTimeout(resolve, AUTO_STOP_TRACE_DURATION_MS));
           const traceEvents = await stopTracingAndCollectEvents(ws);
           return traceEvents;
         });
@@ -218,26 +223,30 @@ export function registerPerformanceTools(server: McpServer): void {
         return { content: [{ type: 'text' as const, text }] };
       }
 
-      await withCdpWs(target, async (ws) => {
-        if (params.reload) {
-          await sendCdp(ws, 'Page.enable');
-          await sendCdp(ws, 'Page.navigate', { url: 'about:blank' });
-          await new Promise((r) => setTimeout(r, 1500));
-        }
-        await sendCdp(ws, 'Tracing.start', { categories: TRACE_CATEGORIES });
-        if (params.reload && pageUrl) {
-          await sendCdp(ws, 'Page.navigate', { url: pageUrl });
-        }
-      });
-      isTracing = true;
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: '성능 트레이스 녹화 중입니다. performance_stop_trace로 중지하세요.',
-          },
-        ],
-      };
+      try {
+        await withCdpWs(target, async (ws) => {
+          if (params.reload) {
+            await sendCdp(ws, 'Page.enable');
+            await sendCdp(ws, 'Page.navigate', { url: 'about:blank' });
+            await new Promise((r) => setTimeout(r, RELOAD_WAIT_MS));
+          }
+          await sendCdp(ws, 'Tracing.start', { categories: TRACE_CATEGORIES });
+          if (params.reload && pageUrl) {
+            await sendCdp(ws, 'Page.navigate', { url: pageUrl });
+          }
+        });
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: '성능 트레이스 녹화 중입니다. performance_stop_trace로 중지하세요.',
+            },
+          ],
+        };
+      } catch (err) {
+        isTracing = false;
+        throw err;
+      }
     }
   );
 
@@ -267,10 +276,10 @@ export function registerPerformanceTools(server: McpServer): void {
           ],
         };
       }
+      isTracing = false;
 
       const target = await findElectronTarget();
       const traceEvents = await withCdpWs(target, (ws) => stopTracingAndCollectEvents(ws));
-      isTracing = false;
       lastTraceEventsCount = traceEvents.length;
 
       lastTraceFilePath = null;

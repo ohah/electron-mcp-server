@@ -7,7 +7,6 @@
  */
 
 import { z } from 'zod';
-import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   scanForElectronApps,
@@ -16,6 +15,7 @@ import {
   setSelectedPageId,
   getTargetByPageId,
   sendCdp,
+  withCdpWs,
   executeInElectron,
   type DevToolsTarget,
 } from './electron';
@@ -58,18 +58,6 @@ const waitForSchema = z.object({
 
 const CDP_NAVIGATION_TIMEOUT_MS = 30_000;
 const WAIT_FOR_POLL_MS = 500;
-
-function withCdpWs<T>(target: DevToolsTarget, fn: (ws: WebSocket) => Promise<T>): Promise<T> {
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
-  return new Promise((resolve, reject) => {
-    ws.once('open', () => {
-      fn(ws)
-        .then(resolve, reject)
-        .finally(() => ws.close());
-    });
-    ws.once('error', reject);
-  });
-}
 
 async function navigatePageImpl(
   target: DevToolsTarget,
