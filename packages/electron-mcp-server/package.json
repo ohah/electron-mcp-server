@@ -9,10 +9,16 @@
     "mcp",
     "model-context-protocol"
   ],
+  "homepage": "https://github.com/ohah/electron-mcp-server#readme",
+  "bugs": {
+    "url": "https://github.com/ohah/electron-mcp-server/issues"
+  },
   "license": "MIT",
+  "author": "ohah",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ohah/electron-mcp-server.git"
+    "url": "https://github.com/ohah/electron-mcp-server.git",
+    "directory": "packages/electron-mcp-server"
   },
   "bin": {
     "electron-mcp-server": "dist/index.js"
@@ -25,15 +31,15 @@
     "access": "public"
   },
   "scripts": {
-    "build": "bunup && node scripts/chmod-dist.mjs",
+    "build": "bunup && bun scripts/chmod-dist.mjs",
     "prepublishOnly": "bun run build",
-    "mcp:run": "node dist/index.js",
-    "mcp": "bun run build && node dist/index.js",
+    "mcp:run": "bun dist/index.js",
+    "mcp": "bun run build && bun dist/index.js",
     "test": "bun test",
     "test:e2e": "bunup && bun test tests/e2e",
     "test:e2e:mcp": "bun test tests/e2e/mcp-with-electron.e2e.test.ts",
     "test:e2e:electron": "bun test tests/e2e/electron-playwright.e2e.test.ts",
-    "test:e2e:node": "bunup && node tests/e2e/mcp-e2e.mjs"
+    "test:e2e:node": "bunup && bun tests/e2e/mcp-e2e.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.0",
@@ -46,5 +52,9 @@
     "bunup": "^0.16.22",
     "playwright": "^1.49.0",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=24"
   }
 }

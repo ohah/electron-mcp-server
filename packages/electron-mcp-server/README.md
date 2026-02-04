@@ -34,3 +34,7 @@ electron . --remote-debugging-port=9222
 ```
 
 Then MCP tools can control it via Chrome DevTools Protocol.
+
+## MCP clients
+
+Cursor (`.cursor/mcp.json`) is shown above; the same `command`/`args` work in other MCP clients (e.g. Claude Desktop). This server exposes tools for Electron automation (CDP): list pages, take snapshot/screenshot, click, fill, navigate, console/network inspection, performance trace, etc. See the [repository README](https://github.com/ohah/electron-mcp-server) for development and tool details.

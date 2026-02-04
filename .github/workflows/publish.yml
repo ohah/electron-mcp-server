@@ -5,11 +5,24 @@ on:
     types: [published]
   workflow_dispatch:
 
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -22,8 +35,12 @@ jobs:
       - name: Build MCP server
         run: bun run build:mcp
 
+      - name: Test built package
+        working-directory: packages/electron-mcp-server
+        run: bun dist/index.js --help || true
+
       - name: Publish to npm
         working-directory: packages/electron-mcp-server
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --tag latest
+        run: npm publish --tag latest --provenance
