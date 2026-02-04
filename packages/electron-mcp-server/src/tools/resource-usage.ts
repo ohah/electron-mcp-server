@@ -84,9 +84,7 @@ export function registerResourceUsageTool(server: McpServer): void {
           ],
         };
       }
-      const script = params.includeOs
-        ? RESOURCE_SCRIPT
-        : RESOURCE_SCRIPT.replace('})(true)', '})(false)');
+      const script = RESOURCE_SCRIPT.replace('})(true)', '})(' + params.includeOs + ')');
       const text = await executeInElectron(script, mainTarget);
       return { content: [{ type: 'text' as const, text }] };
     }

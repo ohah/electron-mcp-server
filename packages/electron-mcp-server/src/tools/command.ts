@@ -31,6 +31,11 @@ function sendCommandToElectron(
       code = args?.code ?? command;
   }
   const runInMain = args?.target === 'main';
+  if (runInMain && cmd !== 'eval') {
+    throw new Error(
+      'target=main is only supported with command "eval". get_title, get_url, get_body_text require a renderer (DOM).'
+    );
+  }
   return runInMain
     ? (async () => {
         const mainTarget = await getMainProcessTarget();
@@ -52,7 +57,7 @@ const schema = z.object({
         .enum(['main', 'renderer'])
         .optional()
         .describe(
-          'main: run in main process (console.log via get_electron_main_console_messages). renderer or omit: default target (page).'
+          'main: run in main process; only valid with command "eval". renderer or omit: default target (page).'
         ),
     })
     .optional(),
@@ -61,7 +66,7 @@ const schema = z.object({
 export const sendCommandToElectronTool = {
   name: 'send_command_to_electron' as const,
   description:
-    'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code). args.target=main runs in main process; use get_electron_main_console_messages for console output.',
+    'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code). args.target=main runs in main process (only with command "eval"; DOM commands require renderer); use get_electron_main_console_messages for console output.',
   inputSchema: schema,
   handler: async (args: z.infer<typeof schema>) => {
     const command = args?.command ?? 'get_title';

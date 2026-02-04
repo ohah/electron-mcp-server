@@ -11,6 +11,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   scanForElectronApps,
   getLastScanError,
+  getCurrentApp,
   findElectronTarget,
   setSelectedPageId,
   getTargetByPageId,
@@ -126,7 +127,21 @@ export function registerNavigationTools(server: McpServer): void {
           ],
         };
       }
-      const app = apps[0];
+      const app = await getCurrentApp();
+      if (!app) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(
+                { pages: [], message: 'No Electron app (getCurrentApp returned null).' },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
       const pages = app.targets
         .filter(
           (t) => (t.type === 'page' || t.type === 'node') && !(t.title || '').includes('DevTools')
