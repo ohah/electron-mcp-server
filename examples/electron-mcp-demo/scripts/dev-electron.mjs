@@ -14,7 +14,7 @@ process.env.VITE_DEV_SERVER_URL = 'http://localhost:5173';
 
 const child = spawn(
   process.execPath,
-  [electronCli, '.', '--remote-debugging-port=9222', '--inspect=9222'],
+  [electronCli, '.', '--remote-debugging-port=9222', '--inspect=9229'],
   {
     cwd: root,
     stdio: 'inherit',
