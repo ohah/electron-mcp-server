@@ -487,6 +487,8 @@ export function executeInElectron(
               expression: javascriptCode,
               returnByValue: true,
               awaitPromise: true,
+              // Node 인스펙터에서 require는 Command Line API로만 노출됨. true여야 메인 프로세스에서 require('os') 등 사용 가능.
+              includeCommandLineAPI: true,
             },
           })
         );
