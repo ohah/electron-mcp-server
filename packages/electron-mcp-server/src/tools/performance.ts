@@ -10,6 +10,9 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import zlib from 'node:zlib';
 import { z } from 'zod';
+import { WebSocket } from 'ws';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { findElectronTarget, sendCdp, type DevToolsTarget } from './electron';
 
 function gzipAsync(buf: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -19,9 +22,6 @@ function gzipAsync(buf: Buffer): Promise<Buffer> {
     });
   });
 }
-import { WebSocket } from 'ws';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { findElectronTarget, sendCdp, type DevToolsTarget } from './electron';
 
 /** Chrome DevTools MCP / Lighthouse와 동일한 카테고리 */
 const TRACE_CATEGORIES =
