@@ -169,8 +169,9 @@ export async function scanForElectronApps(): Promise<ElectronAppInfo[]> {
       const relevantTargets = targets.filter((t) => t && (t.type === 'page' || t.type === 'node'));
       if (relevantTargets.length > 0) {
         found.push({ port, targets: relevantTargets });
+      } else {
+        lastScanError = `port ${port}: ${targets.length} target(s), 0 with type 'page' or 'node'`;
       }
-      lastScanError = `port ${port}: ${targets.length} target(s), 0 with type 'page' or 'node'`;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       lastScanError = `port ${port}: ${msg}`;

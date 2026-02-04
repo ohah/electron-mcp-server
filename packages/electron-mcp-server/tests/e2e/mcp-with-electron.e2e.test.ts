@@ -19,8 +19,9 @@ const workspaceRoot = join(pkgDir, '../..');
 const demoDir = join(workspaceRoot, 'examples', 'electron-mcp-demo');
 const mcpPath = join(pkgDir, 'dist', 'index.js');
 
-/** E2E 전용 포트(9229)로 충돌 방지. MCP 서버는 9222–9225, 9229 스캔. */
+/** E2E 전용: CDP(remote-debugging) 9229, Node inspect 9230 분리. MCP 서버는 9229 등 스캔. */
 const DEBUG_PORT = 9229;
+const INSPECT_PORT = 9230;
 const READY_TIMEOUT_MS = 25000;
 const POLL_MS = 300;
 
@@ -109,7 +110,7 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
         '--disable-software-rasterizer'
       );
     }
-    electronArgs.push(`--inspect=${DEBUG_PORT}`);
+    electronArgs.push(`--inspect=${INSPECT_PORT}`);
     electronProc = Bun.spawn(['node', ...electronArgs], {
       cwd: demoDir,
       stdin: 'ignore',

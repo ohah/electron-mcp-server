@@ -231,18 +231,19 @@ async function startConsoleCaptureIfNeeded(includeMainProcess: boolean): Promise
   };
 
   if (rendererTarget) {
-    rendererWs = await openWs(rendererTarget);
+    const currentRendererWs = await openWs(rendererTarget);
+    rendererWs = currentRendererWs;
     rendererTargetId = rendererTarget.id;
-    attachMessageHandler(rendererWs, 'renderer', rendererTarget);
-    rendererWs.on('close', () => {
-      if (rendererWs) {
+    attachMessageHandler(currentRendererWs, 'renderer', rendererTarget);
+    currentRendererWs.on('close', () => {
+      if (rendererWs === currentRendererWs) {
         rendererWs = null;
         rendererTargetId = null;
         clearConsoleState();
       }
     });
-    rendererWs.on('error', () => {
-      if (rendererWs) {
+    currentRendererWs.on('error', () => {
+      if (rendererWs === currentRendererWs) {
         rendererWs = null;
         rendererTargetId = null;
         clearConsoleState();
@@ -258,21 +259,22 @@ async function startConsoleCaptureIfNeeded(includeMainProcess: boolean): Promise
   }
 
   if (mainTarget) {
-    mainWs = await openWs(mainTarget);
-    attachMessageHandler(mainWs, 'main', mainTarget);
-    mainWs.on('close', () => {
-      if (mainWs) mainWs = null;
+    const currentMainWs = await openWs(mainTarget);
+    mainWs = currentMainWs;
+    attachMessageHandler(currentMainWs, 'main', mainTarget);
+    currentMainWs.on('close', () => {
+      if (mainWs === currentMainWs) mainWs = null;
     });
-    mainWs.on('error', () => {
-      if (mainWs) mainWs = null;
+    currentMainWs.on('error', () => {
+      if (mainWs === currentMainWs) mainWs = null;
     });
-    await sendCdp(mainWs, 'Console.enable');
+    await sendCdp(currentMainWs, 'Console.enable');
     try {
-      await sendCdp(mainWs!, 'Log.enable');
+      await sendCdp(currentMainWs, 'Log.enable');
     } catch {
       // Node(메인) 타겟은 Log.enable 미지원일 수 있음. Console/Runtime만 사용.
     }
-    await sendCdp(mainWs!, 'Runtime.enable');
+    await sendCdp(currentMainWs, 'Runtime.enable');
   }
 }
 

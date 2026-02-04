@@ -31,9 +31,9 @@ const RESOURCE_SCRIPT = `
     cpu: { user: cpu.user, system: cpu.system },
     pid: process.pid
   };
-  if (includeOs && typeof process.mainModule.require === 'function') {
+  if (includeOs && typeof require !== 'undefined') {
     try {
-      const os = process.mainModule.require('os');
+      const os = require('os');
       out.os = {
         loadavg: os.loadavg(),
         freemem: os.freemem(),

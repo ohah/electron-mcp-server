@@ -33,7 +33,7 @@
 | `before-quit`               | `quit` 호출 후 실제 종료 전                                |
 | `will-quit`                 | 모든 창이 닫힌 뒤 앱이 종료되기 직전                       |
 | `quit`                      | 앱 종료 시 (코드로 나가기 직전)                            |
-| `open-file`                 | macOS에서 앱이 파일로 열릴 때 (드ock 클릭 등)              |
+| `open-file`                 | macOS에서 앱이 파일로 열릴 때 (dock 클릭 등)               |
 | `open-url`                  | macOS에서 URL로 앱이 열릴 때                               |
 | `activate`                  | macOS에서 dock 클릭 등으로 앱이 포커스될 때                |
 | `second-instance`           | 두 번째 인스턴스 실행 시 (single-instance 앱)              |

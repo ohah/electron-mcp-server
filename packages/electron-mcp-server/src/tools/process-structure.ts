@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { getElectronProcessStructure } from './electron';
+import { getElectronProcessStructure, setSelectedPort } from './electron';
 
 const schema = z.object({
   includeDevTools: z.boolean().optional().describe('true면 DevTools 창도 renderers에 포함'),
@@ -41,5 +41,41 @@ export function registerGetElectronProcessStructure(server: McpServer): void {
       inputSchema: getElectronProcessStructureTool.inputSchema,
     },
     (args: unknown) => getElectronProcessStructureTool.handler(args as z.infer<typeof schema>)
+  );
+
+  const selectPortSchema = z.object({
+    port: z
+      .number()
+      .describe(
+        '작업할 Electron 앱의 디버깅 포트 (예: 9222, 9229, 9230). null로 초기화하려면 0을 넘기거나 별도 규칙 사용.'
+      ),
+  });
+  (
+    server as {
+      registerTool(
+        name: string,
+        def: { description: string; inputSchema: z.ZodTypeAny },
+        handler: (args: unknown) => Promise<unknown>
+      ): void;
+    }
+  ).registerTool(
+    'select_port',
+    {
+      description:
+        '두 군데(9229, 9230 등) 연결 시 작업할 Electron 앱 포트를 선택합니다. get_electron_process_structure의 apps에서 port를 확인한 뒤 이 도구로 선택. 0이면 선택 해제(첫 번째 발견 앱 사용).',
+      inputSchema: selectPortSchema,
+    },
+    async (args: unknown) => {
+      const { port } = selectPortSchema.parse(args ?? {});
+      setSelectedPort(port === 0 ? null : port);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ ok: true, selectedPort: port === 0 ? null : port }, null, 2),
+          },
+        ],
+      };
+    }
   );
 }

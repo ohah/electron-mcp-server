@@ -32,6 +32,7 @@ function closeWs(ws: WebSocket | null): void {
   }
 }
 
+/** 한 번에 하나의 CPU/힙 프로파일 세션만 지원. 동시 다중 클라이언트 시 상태 불일치 가능. */
 let mainCpuProfileWs: WebSocket | null = null;
 let mainHeapSamplingWs: WebSocket | null = null;
 
