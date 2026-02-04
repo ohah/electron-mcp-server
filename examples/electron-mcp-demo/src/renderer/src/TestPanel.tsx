@@ -495,7 +495,8 @@ export default function TestPanel({ toolId }: TestPanelProps) {
         return (
           <section style={sectionStyle}>
             <p>
-              먼저 콘솔 로그를 남긴 뒤 <code>get_console_message</code>로 index로 조회하세요.
+              먼저 <code>list_console_messages</code>로 목록을 가져온 뒤, 반환된 <code>msgid</code>
+              로 <code>get_console_message</code>를 호출하세요.
             </p>
           </section>
         );
