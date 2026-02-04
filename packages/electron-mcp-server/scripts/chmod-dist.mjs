@@ -9,6 +9,9 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const target = path.join(__dirname, '..', 'dist', 'index.js');
 
-if (fs.existsSync(target) && process.platform !== 'win32') {
+if (!fs.existsSync(target)) {
+  console.error(`[chmod-dist] Expected build output not found: ${target}`);
+  process.exitCode = 1;
+} else if (process.platform !== 'win32') {
   fs.chmodSync(target, 0o755);
 }
