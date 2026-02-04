@@ -8,8 +8,17 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { gzip } from 'node:zlib/promises';
+import zlib from 'node:zlib';
 import { z } from 'zod';
+
+function gzipAsync(buf: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    zlib.gzip(buf, (err, result) => {
+      if (err) reject(err);
+      else resolve(result ?? Buffer.alloc(0));
+    });
+  });
+}
 import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { findElectronTarget, sendCdp, type DevToolsTarget } from './electron';
@@ -136,7 +145,7 @@ async function writeTraceFile(
     : path.resolve(process.cwd(), filePath);
   const json = JSON.stringify({ traceEvents });
   if (gzipOutput) {
-    const buf = await gzip(Buffer.from(json, 'utf-8'));
+    const buf = await gzipAsync(Buffer.from(json, 'utf-8'));
     await fs.writeFile(resolved, buf);
   } else {
     await fs.writeFile(resolved, json, 'utf-8');
