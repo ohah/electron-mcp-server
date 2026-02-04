@@ -1,17 +1,25 @@
 /**
- * MCP tools: list_console_messages, get_console_message
- * Chrome DevTools MCP와 동일 스펙: 상시 수집·내비게이션 버킷(최근 3개),
- * pageIdx/pageSize/types/includePreservedMessages, get은 msgid로 조회.
+ * MCP tools: list_console_messages, get_console_message,
+ * get_electron_main_console_messages, get_electron_renderer_console_messages,
+ * get_electron_main_console_message, get_electron_renderer_console_message.
+ * Chrome DevTools MCP 스타일 + 메인 프로세스 콘솔 병합, Log/Runtime 이벤트 수집.
+ * 이벤트 구분: 메인 전용/렌더러 전용 도구로 targetType 구분.
  * @see https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md
  */
 
 import { z } from 'zod';
 import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { findElectronTarget, sendCdp } from './electron';
+import { findRendererTarget, getMainProcessTarget, sendCdp, type DevToolsTarget } from './electron';
 
 export interface ConsoleMessageEntry {
   msgid: number;
+  /** 메인 프로세스 vs 렌더러 구분 */
+  targetType: 'main' | 'renderer';
+  targetId: string;
+  targetTitle: string;
+  /** 수신 시각(정렬용) */
+  timestamp: number;
   source: string;
   level: string;
   text: string;
@@ -23,12 +31,14 @@ export interface ConsoleMessageEntry {
 const MAX_NAVIGATION_SAVED = 3;
 let nextMsgId = 1;
 
-let consoleCaptureWs: WebSocket | null = null;
-let consoleCaptureTargetId: string | null = null;
-/** msgid → 메시지 (현재 + preserved 모두에서 조회용) */
+let mainWs: WebSocket | null = null;
+let rendererWs: WebSocket | null = null;
+let rendererTargetId: string | null = null;
+/** msgid → 메시지 */
 const byMsgId = new Map<number, ConsoleMessageEntry>();
-/** navigations[0] = 현재 내비게이션 메시지 목록 */
 const navigationBuckets: ConsoleMessageEntry[][] = [[]];
+/** includeMainProcess로 메인 캡처 여부. 재연결 시 사용 */
+let captureMain = true;
 
 function ensureCurrentBucket(): void {
   if (navigationBuckets.length === 0) {
@@ -60,32 +70,52 @@ function clearConsoleState(): void {
   navigationBuckets.push([]);
 }
 
-async function startConsoleCaptureIfNeeded(): Promise<void> {
-  const target = await findElectronTarget();
-  const needReconnect =
-    !consoleCaptureWs ||
-    consoleCaptureWs.readyState !== WebSocket.OPEN ||
-    consoleCaptureTargetId !== target.id;
-  if (!needReconnect) {
-    return;
-  }
-  if (consoleCaptureWs) {
-    try {
-      consoleCaptureWs.close();
-    } catch {
-      // ignore
+function closeAllCapture(): void {
+  for (const ws of [mainWs, rendererWs]) {
+    if (ws) {
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
     }
-    consoleCaptureWs = null;
   }
-  consoleCaptureTargetId = null;
+  mainWs = null;
+  rendererWs = null;
+  rendererTargetId = null;
   clearConsoleState();
+}
 
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise<void>((resolve, reject) => {
-    ws.once('open', () => resolve());
-    ws.once('error', reject);
-  });
+function makeEntry(
+  targetType: 'main' | 'renderer',
+  target: DevToolsTarget,
+  source: string,
+  level: string,
+  text: string,
+  url?: string,
+  line?: number,
+  column?: number
+): ConsoleMessageEntry {
+  return {
+    msgid: nextMsgId++,
+    targetType,
+    targetId: target.id,
+    targetTitle: target.title || (targetType === 'main' ? 'main' : target.url || ''),
+    timestamp: Date.now(),
+    source,
+    level,
+    text,
+    url,
+    line,
+    column,
+  };
+}
 
+function attachMessageHandler(
+  ws: WebSocket,
+  targetType: 'main' | 'renderer',
+  target: DevToolsTarget
+): void {
   const handler = (raw: Buffer) => {
     try {
       const msg = JSON.parse(raw.toString()) as {
@@ -100,6 +130,19 @@ async function startConsoleCaptureIfNeeded(): Promise<void> {
             column?: number;
           };
           frame?: { id?: string; parentId?: string };
+          entry?: {
+            level?: string;
+            text?: string;
+            url?: string;
+            lineNumber?: number;
+          };
+          exceptionDetails?: {
+            text?: string;
+            exception?: { description?: string };
+            url?: string;
+            lineNumber?: number;
+            columnNumber?: number;
+          };
         };
       };
       const method = msg.method;
@@ -107,17 +150,46 @@ async function startConsoleCaptureIfNeeded(): Promise<void> {
 
       if (method === 'Console.messageAdded' && params.message) {
         const m = params.message;
-        const entry: ConsoleMessageEntry = {
-          msgid: nextMsgId++,
-          source: m.source ?? 'unknown',
-          level: m.level ?? 'log',
-          text: m.text ?? '',
-          url: m.url,
-          line: m.line,
-          column: m.column,
-        };
+        const entry = makeEntry(
+          targetType,
+          target,
+          m.source ?? 'unknown',
+          m.level ?? 'log',
+          m.text ?? '',
+          m.url,
+          m.line,
+          m.column
+        );
         addToCurrentBucket(entry);
-      } else if (method === 'Page.frameNavigated') {
+      } else if (method === 'Log.entryAdded' && params.entry) {
+        const e = params.entry;
+        const entry = makeEntry(
+          targetType,
+          target,
+          'browser',
+          e.level ?? 'verbose',
+          e.text ?? '',
+          e.url,
+          e.lineNumber,
+          undefined
+        );
+        addToCurrentBucket(entry);
+      } else if (method === 'Runtime.exceptionThrown' && params.exceptionDetails) {
+        const ex = params.exceptionDetails;
+        const text =
+          ex.exception?.description ?? ex.text ?? JSON.stringify(params.exceptionDetails);
+        const entry = makeEntry(
+          targetType,
+          target,
+          'javascript',
+          'error',
+          text,
+          ex.url,
+          ex.lineNumber,
+          ex.columnNumber
+        );
+        addToCurrentBucket(entry);
+      } else if (method === 'Page.frameNavigated' && targetType === 'renderer') {
         const frame = params.frame;
         if (frame?.id && !frame.parentId) {
           splitAfterNavigation();
@@ -127,30 +199,84 @@ async function startConsoleCaptureIfNeeded(): Promise<void> {
       // ignore
     }
   };
-
   ws.on('message', handler);
-  ws.on('close', () => {
-    if (consoleCaptureWs === ws) {
-      consoleCaptureWs = null;
-      consoleCaptureTargetId = null;
-      clearConsoleState();
-    }
-  });
-  ws.on('error', () => {
-    if (consoleCaptureWs === ws) {
-      consoleCaptureWs = null;
-      consoleCaptureTargetId = null;
-      clearConsoleState();
-    }
-  });
-
-  await sendCdp(ws, 'Console.enable');
-  await sendCdp(ws, 'Page.enable');
-  consoleCaptureWs = ws;
-  consoleCaptureTargetId = target.id;
 }
 
-/** 현재 내비 또는 최근 3개 내비 메시지. types로 level/source 필터. */
+async function startConsoleCaptureIfNeeded(includeMainProcess: boolean): Promise<void> {
+  captureMain = includeMainProcess;
+  const rendererTarget = await findRendererTarget();
+  const mainTarget = includeMainProcess ? await getMainProcessTarget() : null;
+
+  const needReconnect =
+    (rendererTarget
+      ? !rendererWs ||
+        rendererWs.readyState !== WebSocket.OPEN ||
+        rendererTargetId !== rendererTarget.id
+      : rendererWs !== null) ||
+    (includeMainProcess && mainTarget && (!mainWs || mainWs.readyState !== WebSocket.OPEN)) ||
+    (!includeMainProcess && mainWs !== null);
+
+  if (!needReconnect) {
+    return;
+  }
+
+  closeAllCapture();
+
+  const openWs = (target: DevToolsTarget): Promise<WebSocket> => {
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(target.webSocketDebuggerUrl);
+      ws.once('open', () => resolve(ws));
+      ws.once('error', reject);
+    });
+  };
+
+  if (rendererTarget) {
+    rendererWs = await openWs(rendererTarget);
+    rendererTargetId = rendererTarget.id;
+    attachMessageHandler(rendererWs, 'renderer', rendererTarget);
+    rendererWs.on('close', () => {
+      if (rendererWs) {
+        rendererWs = null;
+        rendererTargetId = null;
+        clearConsoleState();
+      }
+    });
+    rendererWs.on('error', () => {
+      if (rendererWs) {
+        rendererWs = null;
+        rendererTargetId = null;
+        clearConsoleState();
+      }
+    });
+    await sendCdp(rendererWs, 'Console.enable');
+    await sendCdp(rendererWs, 'Page.enable');
+    await sendCdp(rendererWs, 'Log.enable');
+    await sendCdp(rendererWs, 'Runtime.enable');
+  } else {
+    rendererWs = null;
+    rendererTargetId = null;
+  }
+
+  if (mainTarget) {
+    mainWs = await openWs(mainTarget);
+    attachMessageHandler(mainWs, 'main', mainTarget);
+    mainWs.on('close', () => {
+      if (mainWs) mainWs = null;
+    });
+    mainWs.on('error', () => {
+      if (mainWs) mainWs = null;
+    });
+    await sendCdp(mainWs, 'Console.enable');
+    try {
+      await sendCdp(mainWs!, 'Log.enable');
+    } catch {
+      // Node(메인) 타겟은 Log.enable 미지원일 수 있음. Console/Runtime만 사용.
+    }
+    await sendCdp(mainWs!, 'Runtime.enable');
+  }
+}
+
+/** 저장된 메시지 반환. timestamp 기준 정렬, types 필터. */
 function getStoredMessages(includePreserved: boolean, types?: string[]): ConsoleMessageEntry[] {
   let list: ConsoleMessageEntry[];
   if (!includePreserved) {
@@ -162,6 +288,7 @@ function getStoredMessages(includePreserved: boolean, types?: string[]): Console
       if (bucket) list.push(...bucket);
     }
   }
+  list = [...list].sort((a, b) => a.timestamp - b.timestamp);
   if (types && types.length > 0) {
     const set = new Set(types.map((t) => t.toLowerCase()));
     list = list.filter((m) => set.has(m.level.toLowerCase()) || set.has(m.source.toLowerCase()));
@@ -182,7 +309,7 @@ const listSchema = z.object({
     .array(z.string())
     .optional()
     .describe(
-      'Filter messages to only return messages of the specified types (e.g. level: log, warning, error; or source: javascript, console-api). When omitted or empty, returns all messages.'
+      'Filter messages to only return messages of the specified types (e.g. level: log, warning, error; or source: javascript, console-api, browser). When omitted or empty, returns all messages.'
     ),
   includePreservedMessages: z
     .boolean()
@@ -190,11 +317,48 @@ const listSchema = z.object({
     .describe(
       'Set to true to return the preserved messages over the last 3 navigations. Default false.'
     ),
+  includeMainProcess: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      'Include console messages from the Electron main process (node target). Default true. Main and renderer messages are merged and sorted by timestamp.'
+    ),
 });
 
 const getSchema = z.object({
   msgid: z.number().describe('The msgid of a console message from the listed console messages.'),
 });
+
+/** list 공통 스키마 (includeMainProcess 제외, 메인/렌더러 전용 도구용) */
+const listTargetSchema = z.object({
+  pageIdx: z.number().optional().describe('Page number (0-based). Omit for first page.'),
+  pageSize: z.number().optional().describe('Max messages to return. Omit for all.'),
+  types: z
+    .array(z.string())
+    .optional()
+    .describe('Filter by level or source (e.g. log, warning, error, javascript, console-api).'),
+  includePreservedMessages: z
+    .boolean()
+    .optional()
+    .describe('Include last 3 navigations. Default false.'),
+});
+
+function formatMessageEntry(m: ConsoleMessageEntry): object {
+  return {
+    msgid: m.msgid,
+    targetType: m.targetType,
+    targetId: m.targetId,
+    targetTitle: m.targetTitle,
+    timestamp: m.timestamp,
+    level: m.level,
+    text: m.text,
+    source: m.source,
+    url: m.url,
+    line: m.line,
+    column: m.column,
+  };
+}
 
 export function registerConsoleTools(server: McpServer): void {
   const s = server as {
@@ -208,12 +372,12 @@ export function registerConsoleTools(server: McpServer): void {
     'list_console_messages',
     {
       description:
-        'List all console messages for the currently selected page since the last navigation. Use msgid from this list in get_console_message.',
+        'List console messages from the selected renderer and, when includeMainProcess is true, from the Electron main process. Messages are merged and sorted by time. Supports Console.messageAdded, Log.entryAdded (browser log), Runtime.exceptionThrown. Each entry has targetType (main|renderer), targetId, targetTitle. Use msgid in get_console_message.',
       inputSchema: listSchema,
     },
     async (args: unknown) => {
       const params = listSchema.parse(args ?? {});
-      await startConsoleCaptureIfNeeded();
+      await startConsoleCaptureIfNeeded(params.includeMainProcess ?? true);
       const includePreserved = params.includePreservedMessages ?? false;
       const types = params.types;
       const all = getStoredMessages(includePreserved, types);
@@ -225,6 +389,10 @@ export function registerConsoleTools(server: McpServer): void {
           : all;
       const list = slice.map((m) => ({
         msgid: m.msgid,
+        targetType: m.targetType,
+        targetId: m.targetId,
+        targetTitle: m.targetTitle,
+        timestamp: m.timestamp,
         level: m.level,
         text: m.text,
         source: m.source,
@@ -241,13 +409,13 @@ export function registerConsoleTools(server: McpServer): void {
     'get_console_message',
     {
       description:
-        'Gets a console message by its ID. You can get all messages by calling list_console_messages.',
+        'Gets a console message by its ID. You can get all messages by calling list_console_messages. Response includes targetType (main|renderer), targetId, targetTitle.',
       inputSchema: getSchema,
     },
     async (args: unknown) => {
       const params = getSchema.parse(args);
       const msgid = params.msgid;
-      await startConsoleCaptureIfNeeded();
+      await startConsoleCaptureIfNeeded(captureMain);
       const entry = byMsgId.get(msgid);
       if (!entry) {
         return {
@@ -259,19 +427,127 @@ export function registerConsoleTools(server: McpServer): void {
           ],
         };
       }
-      const text = JSON.stringify(
-        {
-          msgid: entry.msgid,
-          level: entry.level,
-          text: entry.text,
-          source: entry.source,
-          url: entry.url,
-          line: entry.line,
-          column: entry.column,
-        },
-        null,
-        2
+      const text = JSON.stringify(formatMessageEntry(entry), null, 2);
+      return { content: [{ type: 'text' as const, text }] };
+    }
+  );
+
+  s.registerTool(
+    'get_electron_main_console_messages',
+    {
+      description:
+        'Electron 메인 프로세스 콘솔 메시지만 목록으로 반환합니다. targetType이 main인 이벤트만 포함. pageIdx/pageSize/types/includePreservedMessages 지원.',
+      inputSchema: listTargetSchema,
+    },
+    async (args: unknown) => {
+      const params = listTargetSchema.parse(args ?? {});
+      await startConsoleCaptureIfNeeded(true);
+      const all = getStoredMessages(params.includePreservedMessages ?? false, params.types).filter(
+        (m) => m.targetType === 'main'
       );
+      const pageIdx = params.pageIdx ?? 0;
+      const pageSize = params.pageSize;
+      const slice =
+        pageSize != null && pageSize > 0
+          ? all.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
+          : all;
+      const text = JSON.stringify(slice.map(formatMessageEntry), null, 2);
+      return { content: [{ type: 'text' as const, text }] };
+    }
+  );
+
+  s.registerTool(
+    'get_electron_renderer_console_messages',
+    {
+      description:
+        'Electron 렌더러 프로세스 콘솔 메시지만 목록으로 반환합니다. targetType이 renderer인 이벤트만 포함. pageIdx/pageSize/types/includePreservedMessages 지원.',
+      inputSchema: listTargetSchema,
+    },
+    async (args: unknown) => {
+      const params = listTargetSchema.parse(args ?? {});
+      await startConsoleCaptureIfNeeded(true);
+      const all = getStoredMessages(params.includePreservedMessages ?? false, params.types).filter(
+        (m) => m.targetType === 'renderer'
+      );
+      const pageIdx = params.pageIdx ?? 0;
+      const pageSize = params.pageSize;
+      const slice =
+        pageSize != null && pageSize > 0
+          ? all.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
+          : all;
+      const text = JSON.stringify(slice.map(formatMessageEntry), null, 2);
+      return { content: [{ type: 'text' as const, text }] };
+    }
+  );
+
+  s.registerTool(
+    'get_electron_main_console_message',
+    {
+      description:
+        'msgid에 해당하는 콘솔 메시지를 반환합니다. 메인 프로세스(main) 메시지일 때만 반환하며, renderer 메시지면 에러를 반환합니다.',
+      inputSchema: getSchema,
+    },
+    async (args: unknown) => {
+      const params = getSchema.parse(args);
+      await startConsoleCaptureIfNeeded(captureMain);
+      const entry = byMsgId.get(params.msgid);
+      if (!entry) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Console message not found for msgid ${params.msgid}. Use msgid from get_electron_main_console_messages or list_console_messages.`,
+            },
+          ],
+        };
+      }
+      if (entry.targetType !== 'main') {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Message ${params.msgid} is not from main process (targetType=${entry.targetType}). Use get_electron_renderer_console_message for renderer messages.`,
+            },
+          ],
+        };
+      }
+      const text = JSON.stringify(formatMessageEntry(entry), null, 2);
+      return { content: [{ type: 'text' as const, text }] };
+    }
+  );
+
+  s.registerTool(
+    'get_electron_renderer_console_message',
+    {
+      description:
+        'msgid에 해당하는 콘솔 메시지를 반환합니다. 렌더러 프로세스(renderer) 메시지일 때만 반환하며, main 메시지면 에러를 반환합니다.',
+      inputSchema: getSchema,
+    },
+    async (args: unknown) => {
+      const params = getSchema.parse(args);
+      await startConsoleCaptureIfNeeded(captureMain);
+      const entry = byMsgId.get(params.msgid);
+      if (!entry) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Console message not found for msgid ${params.msgid}. Use msgid from get_electron_renderer_console_messages or list_console_messages.`,
+            },
+          ],
+        };
+      }
+      if (entry.targetType !== 'renderer') {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Message ${params.msgid} is not from renderer process (targetType=${entry.targetType}). Use get_electron_main_console_message for main process messages.`,
+            },
+          ],
+        };
+      }
+      const text = JSON.stringify(formatMessageEntry(entry), null, 2);
       return { content: [{ type: 'text' as const, text }] };
     }
   );

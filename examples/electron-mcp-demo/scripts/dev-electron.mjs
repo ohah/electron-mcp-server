@@ -12,10 +12,14 @@ const electronCli = path.join(path.dirname(require.resolve('electron/package.jso
 
 process.env.VITE_DEV_SERVER_URL = 'http://localhost:5173';
 
-const child = spawn(process.execPath, [electronCli, '.', '--remote-debugging-port=9222'], {
-  cwd: root,
-  stdio: 'inherit',
-  env: process.env,
-});
+const child = spawn(
+  process.execPath,
+  [electronCli, '.', '--remote-debugging-port=9222', '--inspect=9222'],
+  {
+    cwd: root,
+    stdio: 'inherit',
+    env: process.env,
+  }
+);
 
 child.on('exit', (code) => process.exit(code ?? 0));

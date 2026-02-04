@@ -1,7 +1,7 @@
 /**
  * Electron/CDP 공통: 앱 발견, 타겟 조회, JS 실행, CDP 명령.
  * 여러 툴에서 공유하므로 tools/electron/ 으로 두고 index 로 노출.
- * Ports 9222–9225 스캔.
+ * Ports 9229, 9230 우선 스캔 후 9222–9225.
  */
 
 import WebSocket from 'ws';
@@ -72,7 +72,7 @@ export function sendCdp(ws: WebSocket, method: string, params?: object): Promise
   });
 }
 
-const PORTS = [9222, 9223, 9224, 9225, 9229];
+const PORTS = [9229, 9230, 9222, 9223, 9224, 9225];
 
 export interface ElectronAppInfo {
   port: number;
@@ -103,6 +103,33 @@ export interface ElectronWindowResult {
   electronTargets: number;
   message: string;
   automationReady: boolean;
+}
+
+/** 앱 한 개 분량 구조(두 군데 연결 시 apps 배열에 사용). */
+export interface ElectronAppStructureItem {
+  port: number;
+  main: WindowInfo | null;
+  renderers: WindowInfo[];
+  message: string;
+}
+
+/** 메인(1) + 렌더러(여러) 구조와 각각에서 가능한 작업. MCP 클라이언트 사전 인지·동시 감시용. */
+export interface ElectronProcessStructure {
+  platform: string;
+  port: number;
+  /** 메인 프로세스(노드) 타깃 1개. Node 컨텍스트, DOM 없음. */
+  main: WindowInfo | null;
+  /** 렌더러 프로세스(페이지) 타깃. DOM, 스크린샷, 클릭 등. */
+  renderers: WindowInfo[];
+  /** 어디서 무엇이 가능한지 요약. */
+  capabilities: {
+    main: string[];
+    renderers: string[];
+  };
+  message: string;
+  automationReady: boolean;
+  /** 스캔된 모든 앱(포트별). 두 군데(9229, 9230) 연결 시 여기서 확인. select_port로 작업할 앱 선택. */
+  apps?: ElectronAppStructureItem[];
 }
 
 export interface DevToolsTarget {
@@ -139,12 +166,11 @@ export async function scanForElectronApps(): Promise<ElectronAppInfo[]> {
             webSocketDebuggerUrl?: string;
           }>)
         : [];
-      const pageTargets = targets.filter((t) => t && t.type === 'page');
-      if (pageTargets.length > 0) {
-        found.push({ port, targets: pageTargets });
-        return found;
+      const relevantTargets = targets.filter((t) => t && (t.type === 'page' || t.type === 'node'));
+      if (relevantTargets.length > 0) {
+        found.push({ port, targets: relevantTargets });
       }
-      lastScanError = `port ${port}: ${targets.length} target(s), 0 with type 'page'`;
+      lastScanError = `port ${port}: ${targets.length} target(s), 0 with type 'page' or 'node'`;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       lastScanError = `port ${port}: ${msg}`;
@@ -157,6 +183,28 @@ export function getLastScanError(): string | undefined {
   return lastScanError;
 }
 
+/** 선택된 포트. select_port 도구로 설정. null이면 첫 번째 발견 앱 사용. */
+let selectedPort: number | null = null;
+
+export function getSelectedPort(): number | null {
+  return selectedPort;
+}
+
+export function setSelectedPort(port: number | null): void {
+  selectedPort = port;
+}
+
+/** 현재 작업할 앱(선택된 포트 또는 첫 번째 발견). 두 군데(9229, 9230) 스캔 후 하나만 조작할 때 사용. */
+export async function getCurrentApp(): Promise<ElectronAppInfo | null> {
+  const apps = await scanForElectronApps();
+  if (apps.length === 0) return null;
+  if (selectedPort != null) {
+    const app = apps.find((a) => a.port === selectedPort);
+    return app ?? apps[0];
+  }
+  return apps[0];
+}
+
 export function findMainTarget(
   targets: ElectronAppInfo['targets']
 ): (ElectronAppInfo['targets'][0] & { webSocketDebuggerUrl: string }) | null {
@@ -167,12 +215,31 @@ export function findMainTarget(
   return withWs[0] ?? targets.find((t) => t.webSocketDebuggerUrl) ?? null;
 }
 
+/** 렌더러(page) 타겟만 반환. 없으면 null. 콘솔 수집 시 메인만 있을 때 Page.enable 방지용. */
+export async function findRendererTarget(): Promise<DevToolsTarget | null> {
+  const app = await getCurrentApp();
+  if (!app) return null;
+  const withWs = app.targets.filter(
+    (t): t is typeof t & { webSocketDebuggerUrl: string } =>
+      !!t.webSocketDebuggerUrl && t.type === 'page' && !(t.title || '').includes('DevTools')
+  );
+  const t = selectedPageId ? (withWs.find((x) => x.id === selectedPageId) ?? withWs[0]) : withWs[0];
+  if (!t) return null;
+  return {
+    id: t.id,
+    title: t.title,
+    url: t.url,
+    webSocketDebuggerUrl: t.webSocketDebuggerUrl,
+    type: t.type,
+  };
+}
+
 export async function getElectronWindowInfo(
   includeChildren: boolean = false
 ): Promise<ElectronWindowResult> {
   try {
-    const apps = await scanForElectronApps();
-    if (apps.length === 0) {
+    const app = await getCurrentApp();
+    if (!app) {
       const hint = getLastScanError() ? ` (last try: ${getLastScanError()})` : '';
       return {
         platform: process.platform,
@@ -185,7 +252,6 @@ export async function getElectronWindowInfo(
         automationReady: false,
       };
     }
-    const app = apps[0];
     const windows: WindowInfo[] = app.targets.map((t) => ({
       id: t.id,
       title: t.title,
@@ -219,6 +285,103 @@ export async function getElectronWindowInfo(
   }
 }
 
+/** 메인(1) + 렌더러(여러) 구조 반환. 두 군데 연결 시 apps에 모든 포트별 구조 포함. */
+export async function getElectronProcessStructure(
+  includeDevTools: boolean = false
+): Promise<ElectronProcessStructure> {
+  try {
+    const apps = await scanForElectronApps();
+    if (apps.length === 0) {
+      const hint = getLastScanError() ? ` (last try: ${getLastScanError()})` : '';
+      return {
+        platform: process.platform,
+        port: 0,
+        main: null,
+        renderers: [],
+        capabilities: { main: [], renderers: [] },
+        message:
+          'No Electron app with remote debugging found. Start with: electron . --remote-debugging-port=9222' +
+          hint,
+        automationReady: false,
+      };
+    }
+    const capabilities = {
+      main: [
+        'Runtime.evaluate (Node 컨텍스트). 메인 전용: app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, globalShortcut, protocol, Node(require/fs/path).',
+        '메인 이벤트: app(ready, window-all-closed, before-quit, open-file, activate), BrowserWindow(ready-to-show, closed, did-finish-load), ipcMain(channel).',
+        'DOM 없음 → 스크린샷/클릭/스냅샷 불가. 자세한 목록은 docs/electron-main-process.md 참고.',
+      ],
+      renderers: [
+        'DOM 접근·클릭·스크린샷·스냅샷',
+        'Runtime.evaluate (웹 페이지 컨텍스트)',
+        'select_page로 id 선택 후 다른 도구 사용',
+      ],
+    };
+    const appItems: ElectronAppStructureItem[] = apps.map((app) => {
+      const all = app.targets
+        .filter((t) => t.webSocketDebuggerUrl)
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          url: t.url,
+          type: t.type,
+          description: t.description ?? '',
+          webSocketDebuggerUrl: t.webSocketDebuggerUrl!,
+        }));
+      const mainTarget = all.find((t) => t.type === 'node') ?? null;
+      const pageTargets = all.filter(
+        (t) => t.type === 'page' && (includeDevTools || !(t.title || '').includes('DevTools'))
+      );
+      return {
+        port: app.port,
+        main: mainTarget,
+        renderers: pageTargets,
+        message: `port ${app.port}: main ${mainTarget ? '1' : '0'}, renderers ${pageTargets.length}`,
+      };
+    });
+    const currentApp = await getCurrentApp();
+    const app = currentApp ?? apps[0];
+    const all = app.targets
+      .filter((t) => t.webSocketDebuggerUrl)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        url: t.url,
+        type: t.type,
+        description: t.description ?? '',
+        webSocketDebuggerUrl: t.webSocketDebuggerUrl!,
+      }));
+    const mainTarget = all.find((t) => t.type === 'node') ?? null;
+    const pageTargets = all.filter(
+      (t) => t.type === 'page' && (includeDevTools || !(t.title || '').includes('DevTools'))
+    );
+    return {
+      platform: process.platform,
+      port: app.port,
+      main: mainTarget,
+      renderers: pageTargets,
+      capabilities,
+      message:
+        apps.length > 1
+          ? `Electron 앱 ${apps.length}개 (ports ${apps.map((a) => a.port).join(', ')}). select_port로 작업할 앱 선택. 현재: port ${app.port}`
+          : `Electron: main ${mainTarget ? '1' : '0'}, renderers ${pageTargets.length} (port ${app.port})`,
+      automationReady: all.length > 0,
+      apps: appItems.length > 0 ? appItems : undefined,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      platform: process.platform,
+      port: 0,
+      main: null,
+      renderers: [],
+      capabilities: { main: [], renderers: [] },
+      message: `Failed to scan: ${msg}`,
+      automationReady: false,
+    };
+  }
+}
+
 /** 선택된 페이지 ID. select_page 도구로 설정하며, findElectronTarget에서 사용. */
 let selectedPageId: string | null = null;
 
@@ -230,13 +393,31 @@ export function setSelectedPageId(pageId: string | null): void {
   selectedPageId = pageId;
 }
 
+/** 메인 프로세스(node) 타깃 반환. 없으면 null. 콘솔 수집 등에서 사용. */
+export async function getMainProcessTarget(): Promise<DevToolsTarget | null> {
+  const app = await getCurrentApp();
+  if (!app) return null;
+  const t = app.targets.find(
+    (x): x is typeof x & { webSocketDebuggerUrl: string } =>
+      !!x.webSocketDebuggerUrl && x.type === 'node'
+  );
+  if (!t) return null;
+  return {
+    id: t.id,
+    title: t.title,
+    url: t.url,
+    webSocketDebuggerUrl: t.webSocketDebuggerUrl,
+    type: t.type,
+  };
+}
+
 /** pageId에 해당하는 CDP 타겟 반환. 없으면 null. */
 export async function getTargetByPageId(pageId: string): Promise<DevToolsTarget | null> {
   const apps = await scanForElectronApps();
   for (const app of apps) {
     const t = app.targets.find(
       (x): x is typeof x & { webSocketDebuggerUrl: string } =>
-        x.id === pageId && !!x.webSocketDebuggerUrl && x.type === 'page'
+        x.id === pageId && !!x.webSocketDebuggerUrl && (x.type === 'page' || x.type === 'node')
     );
     if (t) {
       return {
@@ -252,15 +433,14 @@ export async function getTargetByPageId(pageId: string): Promise<DevToolsTarget 
 }
 
 export async function findElectronTarget(): Promise<DevToolsTarget> {
-  const apps = await scanForElectronApps();
-  if (apps.length === 0) {
+  const app = await getCurrentApp();
+  if (!app) {
     const hint = getLastScanError() ? ` (${getLastScanError()})` : '';
     throw new Error(
       'No Electron app with remote debugging. Start with: electron . --remote-debugging-port=9222' +
         hint
     );
   }
-  const app = apps[0];
   if (selectedPageId) {
     const selected = await getTargetByPageId(selectedPageId);
     if (selected) return selected;

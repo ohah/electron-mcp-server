@@ -109,6 +109,7 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
         '--disable-software-rasterizer'
       );
     }
+    electronArgs.push(`--inspect=${DEBUG_PORT}`);
     electronProc = Bun.spawn(['node', ...electronArgs], {
       cwd: demoDir,
       stdin: 'ignore',

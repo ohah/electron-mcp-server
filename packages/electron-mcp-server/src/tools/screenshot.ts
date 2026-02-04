@@ -159,6 +159,11 @@ export function registerTakeScreenshot(server: McpServer): void {
       }
 
       const target = await resolveTarget(windowTitle);
+      if (target.type === 'node') {
+        throw new Error(
+          'Screenshot is only supported for page targets (renderer). The current target is the main process (node). Use list_pages and select_page to choose a page target.'
+        );
+      }
       const { data, mimeType } = await takeScreenshotImpl(
         target,
         format as 'png' | 'jpeg',

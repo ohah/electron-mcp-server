@@ -130,12 +130,15 @@ export function registerNavigationTools(server: McpServer): void {
       }
       const app = apps[0];
       const pages = app.targets
-        .filter((t) => t.type === 'page' && !(t.title || '').includes('DevTools'))
+        .filter(
+          (t) => (t.type === 'page' || t.type === 'node') && !(t.title || '').includes('DevTools')
+        )
         .map((t, index) => ({
           index,
           id: t.id,
           title: t.title,
           url: t.url,
+          type: t.type,
         }));
       return {
         content: [{ type: 'text' as const, text: JSON.stringify({ pages }, null, 2) }],

@@ -16,7 +16,10 @@ const distDir = path.join(app.getAppPath(), 'dist');
 const debugPort = process.env.ELECTRON_REMOTE_DEBUGGING_PORT ?? '9222';
 app.commandLine.appendSwitch('remote-debugging-port', debugPort);
 
+console.log('[main] electron-mcp-demo starting, remote-debugging-port=%s', debugPort);
+
 function createWindow(url?: string): electron.BrowserWindow {
+  console.log('[main] createWindow url=%s', url ?? '(file)');
   const win = new BrowserWindow({
     width: 1024,
     height: 768,
@@ -28,28 +31,34 @@ function createWindow(url?: string): electron.BrowserWindow {
   });
 
   if (url) {
-    win.loadURL(url).catch((err) => console.error('loadURL failed:', err));
+    win.loadURL(url).catch((err) => console.error('[main] loadURL failed:', err));
   } else {
     win
       .loadFile(path.join(distDir, 'renderer', 'index.html'))
-      .catch((err) => console.error('loadFile failed:', err));
+      .catch((err) => console.error('[main] loadFile failed:', err));
   }
 
+  win.once('ready-to-show', () => {
+    console.log('[main] window ready-to-show');
+  });
   return win;
 }
 
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 
 app.whenReady().then(() => {
+  console.log('[main] app ready');
   createWindow(devServerUrl);
 
   app.on('window-all-closed', () => {
+    console.log('[main] window-all-closed');
     if (process.platform !== 'darwin') {
       app.quit();
     }
   });
 
   app.on('activate', () => {
+    console.log('[main] activate');
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow(devServerUrl);
     }
