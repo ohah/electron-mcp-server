@@ -1,6 +1,11 @@
 # electron-mcp-server
 
-MCP (Model Context Protocol) server for Electron app automation via Chrome DevTools Protocol (CDP). Use with Cursor, Claude Desktop, or any MCP client. Your Electron app must run with `--remote-debugging-port=9222`.
+MCP (Model Context Protocol) server for Electron app automation via Chrome DevTools Protocol (CDP). Use with Cursor, Claude Desktop, or any MCP client.
+
+**MCP 사용 시 요구사항**
+
+- **Node.js**: MCP 서버 실행에 필요 (npx 또는 전역 설치 시 Node 환경).
+- **Electron 원격 디버깅**: 앱을 `--remote-debugging-port=<port>` 로 실행해야 연결 가능. 권장 포트: **9222** (단일 앱), 여러 앱이면 **9229**, **9230** 등 (서버는 9229→9230→9222→… 순으로 스캔).
 
 ## License
 
