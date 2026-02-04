@@ -1,6 +1,6 @@
 {
   "name": "@ohah/electron-mcp-server",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "description": "MCP server (Node bin) for Electron app automation via CDP. Use with any Electron app running --remote-debugging-port=9222.",
   "keywords": [
     "automation",
@@ -41,11 +41,7 @@
     "test:e2e:electron": "bun test tests/e2e/electron-playwright.e2e.test.ts",
     "test:e2e:node": "bunup && bun tests/e2e/mcp-e2e.mjs"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.0",
-    "ws": "^8.18.0",
-    "zod": "^3.25.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/ws": "^8.5.0",

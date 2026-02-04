@@ -8,11 +8,6 @@ export default defineConfig({
   outDir: 'dist',
   sourcemap: true,
   banner: '#!/usr/bin/env node\n',
-  external: [
-    '@modelcontextprotocol/sdk',
-    '@modelcontextprotocol/sdk/server/mcp',
-    '@modelcontextprotocol/sdk/server/stdio',
-    'ws',
-    'playwright',
-  ],
+  // MCP SDK·ws 모두 번들에 포함해 npx 설치 시 의존성 해석 오류 방지(런타임 의존성 없음)
+  external: ['playwright'],
 });
