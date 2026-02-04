@@ -7,20 +7,8 @@
 import { z } from 'zod';
 import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { findElectronTarget, sendCdp, type DevToolsTarget } from './electron';
+import { findElectronTarget, sendCdp, withCdpWs } from './electron';
 import { getBackendNodeIdByUid } from './snapshot';
-
-function withCdpWs<T>(target: DevToolsTarget, fn: (ws: WebSocket) => Promise<T>): Promise<T> {
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
-  return new Promise((resolve, reject) => {
-    ws.once('open', () => {
-      fn(ws)
-        .then(resolve, reject)
-        .finally(() => ws.close());
-    });
-    ws.once('error', reject);
-  });
-}
 
 /** uid가 스냅샷에서 온 숫자 문자열이면 true */
 function isSnapshotUid(uid: string): boolean {
