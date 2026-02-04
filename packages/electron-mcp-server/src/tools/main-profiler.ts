@@ -40,12 +40,17 @@ const startCpuSchema = z.object({
   samplingIntervalMicroseconds: z
     .number()
     .optional()
-    .describe('CPU 프로파일 샘플 간격(마이크로초). 생략 시 기본값. start 전에만 유효.'),
+    .describe(
+      'CPU profile sampling interval in microseconds. Omit for default. Only valid before start.'
+    ),
 });
 
 const startHeapSchema = z.object({
-  samplingInterval: z.number().optional().describe('평균 샘플 간격(바이트). 기본 32768.'),
-  stackDepth: z.number().optional().describe('최대 스택 깊이. 기본 128.'),
+  samplingInterval: z
+    .number()
+    .optional()
+    .describe('Average sampling interval in bytes. Default 32768.'),
+  stackDepth: z.number().optional().describe('Maximum stack depth. Default 128.'),
 });
 
 export function registerMainProfilerTools(server: McpServer): void {
@@ -61,7 +66,7 @@ export function registerMainProfilerTools(server: McpServer): void {
     'start_electron_main_cpu_profile',
     {
       description:
-        'Electron 메인 프로세스에서 CPU 프로파일 수집을 시작합니다. stop_electron_main_cpu_profile 호출 시까지 샘플을 수집합니다.',
+        'Start collecting CPU profile in the Electron main process. Samples until stop_electron_main_cpu_profile is called.',
       inputSchema: startCpuSchema,
     },
     async (args: unknown) => {
@@ -89,7 +94,7 @@ export function registerMainProfilerTools(server: McpServer): void {
         {
           ok: true,
           message:
-            'CPU 프로파일 수집 중. stop_electron_main_cpu_profile으로 중지 후 프로파일을 받으세요.',
+            'CPU profile collecting. Call stop_electron_main_cpu_profile to stop and receive the profile.',
         },
         null,
         2
@@ -102,7 +107,7 @@ export function registerMainProfilerTools(server: McpServer): void {
     'stop_electron_main_cpu_profile',
     {
       description:
-        '메인 프로세스 CPU 프로파일 수집을 중지하고 수집된 프로파일(Profile)을 반환합니다. start_electron_main_cpu_profile 호출 후 사용.',
+        'Stop main process CPU profile collection and return the collected Profile. Call after start_electron_main_cpu_profile.',
       inputSchema: z.object({}),
     },
     async () => {
@@ -113,8 +118,7 @@ export function registerMainProfilerTools(server: McpServer): void {
               type: 'text' as const,
               text: JSON.stringify(
                 {
-                  error:
-                    'CPU 프로파일이 시작되지 않았습니다. start_electron_main_cpu_profile을 먼저 호출하세요.',
+                  error: 'CPU profile not started. Call start_electron_main_cpu_profile first.',
                 },
                 null,
                 2
@@ -141,7 +145,7 @@ export function registerMainProfilerTools(server: McpServer): void {
     'start_electron_main_heap_sampling',
     {
       description:
-        'Electron 메인 프로세스에서 힙 샘플링을 시작합니다. stop_electron_main_heap_sampling 호출 시 수집된 샘플링 프로파일을 반환합니다.',
+        'Start heap sampling in the Electron main process. Call stop_electron_main_heap_sampling to get the collected SamplingHeapProfile.',
       inputSchema: startHeapSchema,
     },
     async (args: unknown) => {
@@ -172,7 +176,7 @@ export function registerMainProfilerTools(server: McpServer): void {
         {
           ok: true,
           message:
-            '힙 샘플링 중. stop_electron_main_heap_sampling으로 중지 후 프로파일을 받으세요.',
+            'Heap sampling in progress. Call stop_electron_main_heap_sampling to stop and receive the profile.',
         },
         null,
         2
@@ -185,7 +189,7 @@ export function registerMainProfilerTools(server: McpServer): void {
     'stop_electron_main_heap_sampling',
     {
       description:
-        '메인 프로세스 힙 샘플링을 중지하고 수집된 SamplingHeapProfile을 반환합니다. start_electron_main_heap_sampling 호출 후 사용.',
+        'Stop main process heap sampling and return the collected SamplingHeapProfile. Call after start_electron_main_heap_sampling.',
       inputSchema: z.object({}),
     },
     async () => {
@@ -196,8 +200,7 @@ export function registerMainProfilerTools(server: McpServer): void {
               type: 'text' as const,
               text: JSON.stringify(
                 {
-                  error:
-                    '힙 샘플링이 시작되지 않았습니다. start_electron_main_heap_sampling을 먼저 호출하세요.',
+                  error: 'Heap sampling not started. Call start_electron_main_heap_sampling first.',
                 },
                 null,
                 2

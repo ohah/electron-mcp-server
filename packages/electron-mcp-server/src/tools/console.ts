@@ -379,7 +379,7 @@ export function registerConsoleTools(server: McpServer): void {
     'list_console_messages',
     {
       description:
-        'List console messages for the currently selected page (and main process when includeMainProcess is true). One line per message: msgid=N [level] text. Use msgid in get_console_message for details. Chrome DevTools MCP 스타일.',
+        'List console messages for the currently selected page (and main process when includeMainProcess is true). One line per message: msgid=N [level] text. Use msgid in get_console_message for details. Chrome DevTools MCP style.',
       inputSchema: listSchema,
     },
     async (args: unknown) => {
@@ -440,7 +440,7 @@ export function registerConsoleTools(server: McpServer): void {
     'get_electron_main_console_messages',
     {
       description:
-        'Electron 메인 프로세스 콘솔 메시지만 목록으로 반환합니다. targetType이 main인 이벤트만 포함. pageIdx/pageSize/types/includePreservedMessages 지원.',
+        'List only Electron main process console messages (targetType main). Supports pageIdx, pageSize, types, includePreservedMessages.',
       inputSchema: listTargetSchema,
     },
     async (args: unknown) => {
@@ -474,7 +474,7 @@ export function registerConsoleTools(server: McpServer): void {
     'get_electron_renderer_console_messages',
     {
       description:
-        'Electron 렌더러 프로세스 콘솔 메시지만 목록으로 반환합니다. targetType이 renderer인 이벤트만 포함. pageIdx/pageSize/types/includePreservedMessages 지원.',
+        'List only Electron renderer process console messages (targetType renderer). Supports pageIdx, pageSize, types, includePreservedMessages.',
       inputSchema: listTargetSchema,
     },
     async (args: unknown) => {
@@ -508,7 +508,7 @@ export function registerConsoleTools(server: McpServer): void {
     'get_electron_main_console_message',
     {
       description:
-        'msgid에 해당하는 콘솔 메시지를 반환합니다. 메인 프로세스(main) 메시지일 때만 반환하며, renderer 메시지면 에러를 반환합니다.',
+        'Return the console message for the given msgid. Only for main process (main) messages; returns error for renderer messages.',
       inputSchema: getSchema,
     },
     async (args: unknown) => {
@@ -544,7 +544,7 @@ export function registerConsoleTools(server: McpServer): void {
     'get_electron_renderer_console_message',
     {
       description:
-        'msgid에 해당하는 콘솔 메시지를 반환합니다. 렌더러 프로세스(renderer) 메시지일 때만 반환하며, main 메시지면 에러를 반환합니다.',
+        'Return the console message for the given msgid. Only for renderer process messages; returns error for main messages.',
       inputSchema: getSchema,
     },
     async (args: unknown) => {

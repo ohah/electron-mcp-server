@@ -117,7 +117,7 @@ export function registerTakeSnapshot(server: McpServer): void {
     'take_snapshot',
     {
       description:
-        'a11y 트리 기반 페이지 텍스트 스냅샷. 각 요소에 uid(backendNodeId)가 부여되며, click/fill 등 입력 도구에서 사용.',
+        'Page text snapshot from a11y tree. Each element has a uid (backendNodeId); use in input tools (click, fill, etc.).',
       inputSchema: takeSnapshotSchema,
     },
     async () => {

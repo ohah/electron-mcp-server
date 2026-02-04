@@ -52,7 +52,7 @@ const schema = z.object({
         .enum(['main', 'renderer'])
         .optional()
         .describe(
-          'main: 메인 프로세스에서 실행(console.log는 get_electron_main_console_messages로 확인). renderer 또는 생략: 기본 타겟(페이지).'
+          'main: run in main process (console.log via get_electron_main_console_messages). renderer or omit: default target (page).'
         ),
     })
     .optional(),
@@ -61,7 +61,7 @@ const schema = z.object({
 export const sendCommandToElectronTool = {
   name: 'send_command_to_electron' as const,
   description:
-    'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code). args.target=main 이면 메인 프로세스에서 실행하며, 콘솔 출력은 get_electron_main_console_messages로 확인.',
+    'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code). args.target=main runs in main process; use get_electron_main_console_messages for console output.',
   inputSchema: schema,
   handler: async (args: z.infer<typeof schema>) => {
     const command = args?.command ?? 'get_title';

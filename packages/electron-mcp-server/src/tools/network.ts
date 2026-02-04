@@ -223,12 +223,12 @@ const listSchema = z.object({
     .number()
     .optional()
     .describe(
-      '선택: 추가로 N ms 대기 후 반환 (그동안 수집된 요청 포함). 생략 시 즉시 저장 목록 반환'
+      'Optional: wait N ms then return (include requests collected in that time). Omit to return stored list immediately.'
     ),
   includePreservedData: z
     .boolean()
     .optional()
-    .describe('true면 최근 3개 내비게이션 요청 모두 반환. 기본 false(현재 내비만)'),
+    .describe('If true, return last 3 navigations. Default false (current nav only).'),
 });
 
 async function listNetworkRequestsHandler(args: z.infer<typeof listSchema>) {
@@ -254,13 +254,13 @@ async function listNetworkRequestsHandler(args: z.infer<typeof listSchema>) {
 const listTool = {
   name: 'list_network_requests' as const,
   description:
-    '현재 페이지의 네트워크 요청 목록(상시 수집). 저장된 목록을 반환. waitMs 지정 시 해당 시간 대기 후 반환. requestId는 get_network_request에서 사용.',
+    'List of network requests for the current page (continuously captured). Returns stored list. waitMs waits that long before returning. Use requestId in get_network_request.',
   inputSchema: listSchema,
   handler: listNetworkRequestsHandler,
 };
 
 const getSchema = z.object({
-  requestId: z.string().describe('list_network_requests에서 반환된 요청 ID'),
+  requestId: z.string().describe('Request ID from list_network_requests'),
 });
 
 async function getNetworkRequestHandler(args: z.infer<typeof getSchema>) {
@@ -292,7 +292,7 @@ async function getNetworkRequestHandler(args: z.infer<typeof getSchema>) {
 const getTool = {
   name: 'get_network_request' as const,
   description:
-    '특정 네트워크 요청 상세 조회. list_network_requests에 나온 requestId로 요청/응답 메타와 본문(수집된 경우) 반환.',
+    'Get details of a network request. Use requestId from list_network_requests. Returns request/response meta and body when captured.',
   inputSchema: getSchema,
   handler: getNetworkRequestHandler,
 };

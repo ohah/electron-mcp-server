@@ -23,37 +23,34 @@ import {
 const listPagesSchema = z.object({});
 
 const navigatePageSchema = z.object({
-  url: z.string().optional().describe('이동할 URL (type이 url일 때 사용)'),
+  url: z.string().optional().describe('URL to navigate to (when type is url)'),
   type: z
     .enum(['url', 'back', 'forward', 'reload'])
     .optional()
     .default('url')
-    .describe('동작: url | back | forward | reload'),
-  timeout: z.number().optional().describe('내비게이션 타임아웃(ms)'),
-  ignoreCache: z.boolean().optional().describe('캐시 무시(리로드 시)'),
+    .describe('Action: url | back | forward | reload'),
+  timeout: z.number().optional().describe('Navigation timeout (ms)'),
+  ignoreCache: z.boolean().optional().describe('Ignore cache (on reload)'),
 });
 
 const newPageSchema = z.object({
-  url: z.string().optional().describe('새 페이지에 로드할 URL'),
-  background: z.boolean().optional().describe('백그라운드 탭 여부'),
-  timeout: z.number().optional().describe('타임아웃(ms)'),
+  url: z.string().optional().describe('URL to load in the new page'),
+  background: z.boolean().optional().describe('Open as background tab'),
+  timeout: z.number().optional().describe('Timeout (ms)'),
 });
 
 const selectPageSchema = z.object({
-  pageId: z.string().describe('선택할 페이지 ID (list_pages에서 얻은 id)'),
-  bringToFront: z.boolean().optional().describe('창을 앞으로 가져올지 여부 (CDP 모드에서는 무시)'),
+  pageId: z.string().describe('Page ID to select (from list_pages)'),
+  bringToFront: z.boolean().optional().describe('Bring window to front (ignored in CDP-only mode)'),
 });
 
 const closePageSchema = z.object({
-  pageId: z.string().describe('닫을 페이지 ID'),
+  pageId: z.string().describe('Page ID to close'),
 });
 
 const waitForSchema = z.object({
-  text: z
-    .string()
-    .min(1, 'text must be non-empty')
-    .describe('페이지에 나타날 때까지 기다릴 텍스트'),
-  timeout: z.number().optional().default(30_000).describe('대기 타임아웃(ms)'),
+  text: z.string().min(1, 'text must be non-empty').describe('Text to wait for in the page body'),
+  timeout: z.number().optional().default(30_000).describe('Wait timeout (ms)'),
 });
 
 const CDP_NAVIGATION_TIMEOUT_MS = 30_000;
@@ -103,7 +100,8 @@ export function registerNavigationTools(server: McpServer): void {
   ).registerTool(
     'list_pages',
     {
-      description: '열린 페이지(탭/창) 목록 조회. id는 select_page·close_page 등에서 사용.',
+      description:
+        'List open pages (tabs/windows). Use returned id in select_page, close_page, etc.',
       inputSchema: listPagesSchema,
     },
     async () => {
@@ -157,7 +155,8 @@ export function registerNavigationTools(server: McpServer): void {
   ).registerTool(
     'select_page',
     {
-      description: '이후 도구 호출의 컨텍스트가 될 페이지 선택. pageId는 list_pages에서 얻은 id.',
+      description:
+        'Select the page that will be the context for subsequent tool calls. pageId from list_pages.',
       inputSchema: selectPageSchema,
     },
     async (args: unknown) => {
@@ -205,7 +204,7 @@ export function registerNavigationTools(server: McpServer): void {
     'navigate_page',
     {
       description:
-        'URL 이동(type=url), 뒤로(type=back), 앞으로(type=forward), 새로고침(type=reload).',
+        'Navigate: go to URL (type=url), back (type=back), forward (type=forward), reload (type=reload).',
       inputSchema: navigatePageSchema,
     },
     async (args: unknown) => {
@@ -227,7 +226,7 @@ export function registerNavigationTools(server: McpServer): void {
   ).registerTool(
     'wait_for',
     {
-      description: '지정한 텍스트가 페이지 본문에 나타날 때까지 대기.',
+      description: 'Wait until the given text appears in the page body.',
       inputSchema: waitForSchema,
     },
     async (args: unknown) => {
@@ -268,7 +267,7 @@ export function registerNavigationTools(server: McpServer): void {
     'close_page',
     {
       description:
-        '페이지 ID(pageId)로 지정된 탭/창 닫기. pageId 값은 list_pages 결과의 id를 사용. CDP 단독 모드에서는 앱이 창을 닫는 API를 노출해야 함.',
+        'Close the tab/window for the given page ID (from list_pages). In CDP-only mode the app must expose a close-window API.',
       inputSchema: closePageSchema,
     },
     async (args: unknown) => {
@@ -300,7 +299,7 @@ export function registerNavigationTools(server: McpServer): void {
     'new_page',
     {
       description:
-        '새 페이지(탭/창) 열기. CDP 단독 모드에서는 앱이 새 창을 만드는 API를 노출해야 함.',
+        'Open a new page (tab/window). In CDP-only mode the app must expose an API to create new windows.',
       inputSchema: newPageSchema,
     },
     async (args: unknown) => {

@@ -46,7 +46,7 @@ const filePathSchema = z
   .string()
   .optional()
   .describe(
-    '트레이스 원시 데이터를 저장할 절대 경로 또는 cwd 기준 상대 경로. 예: trace.json.gz (압축) 또는 trace.json'
+    'Absolute or cwd-relative path to save trace raw data. E.g. trace.json.gz (gzip) or trace.json'
   );
 
 const startTraceSchema = z.object({
@@ -54,9 +54,12 @@ const startTraceSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      '트레이스 시작 후 현재 선택된 페이지를 자동으로 다시 로드할지 여부입니다. 다른 URL을 계측하고 싶다면 먼저 navigate_page로 해당 URL로 이동한 뒤 이 도구를 호출하세요. reload=true인 경우 이동한 URL로 자동 새로고침이 수행됩니다.'
+      'If true, automatically reload the selected page after starting trace. For another URL, navigate_page first then call this. When reload=true, the current URL is reloaded.'
     ),
-  autoStop: z.boolean().optional().describe('트레이스 녹화를 자동으로 중지할지 여부'),
+  autoStop: z
+    .boolean()
+    .optional()
+    .describe('If true, automatically stop trace recording after a short duration'),
   filePath: filePathSchema,
 });
 
@@ -67,10 +70,10 @@ const stopTraceSchema = z.object({
 const analyzeInsightSchema = z.object({
   insightSetId: z
     .string()
-    .describe('특정 인사이트 세트 ID. "Available insight sets" 목록에 있는 ID만 사용하세요.'),
+    .describe('Insight set ID. Use only IDs from the "Available insight sets" list.'),
   insightName: z
     .string()
-    .describe('상세 정보를 얻을 인사이트 이름. 예: "DocumentLatency", "LCPBreakdown"'),
+    .describe('Insight name for details. E.g. "DocumentLatency", "LCPBreakdown".'),
 });
 
 /** Tracing.end 호출 후 dataCollected/tracingComplete 수신해 traceEvents 배열 반환 */
@@ -158,7 +161,7 @@ export function registerPerformanceTools(server: McpServer): void {
     'performance_start_trace',
     {
       description:
-        '선택된 페이지에서 성능 트레이스 녹화를 시작합니다. 성능 문제와 개선 인사이트를 확인할 수 있으며, Core Web Vitals(CWV) 점수도 포함됩니다.',
+        'Start performance trace recording on the selected page. Use for performance analysis and Core Web Vitals (CWV).',
       inputSchema: startTraceSchema,
     },
     async (args: unknown) => {
@@ -168,7 +171,7 @@ export function registerPerformanceTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: 'Error: 성능 트레이스가 이미 실행 중입니다. performance_stop_trace로 중지한 뒤 다시 시도하세요. 동시에 하나의 트레이스만 가능합니다.',
+              text: 'Error: A performance trace is already running. Call performance_stop_trace first. Only one trace at a time.',
             },
           ],
         };
@@ -184,7 +187,7 @@ export function registerPerformanceTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: 'reload 사용 시 먼저 navigate_page로 계측할 URL로 이동한 뒤 트레이스를 시작하세요. 현재 페이지 URL이 비어 있거나 about:blank입니다.',
+              text: 'When using reload, navigate_page to the URL to measure first. Current page URL is empty or about:blank.',
             },
           ],
         };
@@ -216,9 +219,9 @@ export function registerPerformanceTools(server: McpServer): void {
             params.filePath.endsWith('.gz')
           );
         }
-        let text = `성능 트레이스가 자동으로 중지되었습니다. 이벤트 ${result.length}개 수집.`;
+        let text = `Performance trace stopped automatically. ${result.length} events collected.`;
         if (lastTraceFilePath) {
-          text += `\n원시 트레이스 데이터가 저장되었습니다: ${lastTraceFilePath}`;
+          text += `\nTrace data saved: ${lastTraceFilePath}`;
         }
         return { content: [{ type: 'text' as const, text }] };
       }
@@ -239,7 +242,7 @@ export function registerPerformanceTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: '성능 트레이스 녹화 중입니다. performance_stop_trace로 중지하세요.',
+              text: 'Performance trace recording. Call performance_stop_trace to stop.',
             },
           ],
         };
@@ -261,7 +264,7 @@ export function registerPerformanceTools(server: McpServer): void {
   ).registerTool(
     'performance_stop_trace',
     {
-      description: '선택된 페이지에서 진행 중인 성능 트레이스 녹화를 중지합니다.',
+      description: 'Stop the performance trace recording on the selected page.',
       inputSchema: stopTraceSchema,
     },
     async (args: unknown) => {
@@ -271,7 +274,7 @@ export function registerPerformanceTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: '진행 중인 성능 트레이스가 없습니다. performance_start_trace로 먼저 시작하세요.',
+              text: 'No performance trace running. Call performance_start_trace first.',
             },
           ],
         };
@@ -291,12 +294,12 @@ export function registerPerformanceTools(server: McpServer): void {
         );
       }
 
-      let text = `성능 트레이스가 중지되었습니다. 이벤트 ${traceEvents.length}개 수집.`;
+      let text = `Performance trace stopped. ${traceEvents.length} events collected.`;
       if (lastTraceFilePath) {
-        text += `\n원시 트레이스 데이터가 저장되었습니다: ${lastTraceFilePath}`;
+        text += `\nTrace data saved: ${lastTraceFilePath}`;
       }
       text +=
-        '\n\n트레이스 요약·인사이트는 Chrome DevTools Performance 패널에서 해당 파일을 열어 확인하거나, performance_analyze_insight로 특정 인사이트를 요청할 수 있습니다.';
+        '\n\nOpen the file in Chrome DevTools Performance panel for summary and insights, or use performance_analyze_insight for a specific insight.';
       return { content: [{ type: 'text' as const, text }] };
     }
   );
@@ -313,7 +316,7 @@ export function registerPerformanceTools(server: McpServer): void {
     'performance_analyze_insight',
     {
       description:
-        '트레이스 녹화 결과에서 강조된 특정 성능 인사이트에 대한 상세 정보를 제공합니다.',
+        'Return detailed information for a specific performance insight from the trace. This server has no TraceEngine; open the trace file in Chrome DevTools Performance for full analysis.',
       inputSchema: analyzeInsightSchema,
     },
     async (args: unknown) => {
@@ -323,17 +326,17 @@ export function registerPerformanceTools(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: '녹화된 트레이스가 없습니다. performance_start_trace로 트레이스를 녹화한 뒤 인사이트를 분석하세요.',
+              text: 'No trace recorded. Run performance_start_trace first, then analyze insights.',
             },
           ],
         };
       }
       const message =
-        '이 서버에서는 인사이트 상세 분석 엔진(TraceEngine)을 포함하지 않습니다. ' +
-        `요청하신 인사이트: insightSetId="${insightSetId}", insightName="${insightName}". ` +
+        'This server does not include a trace insight engine (TraceEngine). ' +
+        `Requested insight: insightSetId="${insightSetId}", insightName="${insightName}". ` +
         (lastTraceFilePath
-          ? `트레이스 파일을 Chrome DevTools > Performance에서 열어 인사이트를 확인하세요: ${lastTraceFilePath}`
-          : 'performance_stop_trace 호출 시 filePath를 지정하면 트레이스 파일을 저장한 뒤 DevTools에서 열 수 있습니다.');
+          ? `Open the trace file in Chrome DevTools > Performance to view insights: ${lastTraceFilePath}`
+          : 'Pass filePath to performance_stop_trace to save a trace file, then open it in DevTools.');
       return { content: [{ type: 'text' as const, text: message }] };
     }
   );

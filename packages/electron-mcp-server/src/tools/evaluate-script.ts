@@ -12,9 +12,9 @@ const schema = z.object({
   function: z
     .string()
     .describe(
-      '페이지에서 실행할 함수(문자열). 예: "function() { return document.title; }" 또는 "() => document.body.innerText"'
+      'Function (string) to run in the page. E.g. "function() { return document.title; }" or "() => document.body.innerText"'
     ),
-  args: z.array(z.any()).optional().default([]).describe('함수에 넘길 인자 배열'),
+  args: z.array(z.any()).optional().default([]).describe('Arguments to pass to the function'),
 });
 
 function buildExpression(fnStr: string, args: unknown[]): string {
@@ -36,7 +36,7 @@ export function registerEvaluateScript(server: McpServer): void {
     'evaluate_script',
     {
       description:
-        '페이지 컨텍스트에서 JavaScript 실행. function(문자열)과 args(배열)를 받아 결과를 반환.',
+        'Run JavaScript in the page context. Accepts function (string) and args (array); returns the result.',
       inputSchema: schema,
     },
     async (args: unknown) => {

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 const emptySchema = z.object({});
-const TODO_MSG = 'TODO: Chrome DevTools MCP 로드맵 기능 — 미구현';
+const TODO_MSG = 'TODO: Chrome DevTools MCP roadmap — not implemented';
 
 function registerStub(
   server: McpServer,
@@ -32,7 +32,7 @@ export function registerEmulationTools(server: McpServer): void {
   registerStub(
     server,
     'emulate',
-    '다크/라이트 모드, CPU 스로틀, 지리 위치, 네트워크 조건, User-Agent, 뷰포트 등 에뮬레이션'
+    'Emulate dark/light mode, CPU throttle, geolocation, network conditions, User-Agent, viewport, etc.'
   );
-  registerStub(server, 'resize_page', '페이지(창) 크기 변경');
+  registerStub(server, 'resize_page', 'Resize the page (window).');
 }
