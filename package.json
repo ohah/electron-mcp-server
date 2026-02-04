@@ -15,7 +15,6 @@
     "examples/*"
   ],
   "scripts": {
-    "postinstall": "node scripts/link-mcp-bin.mjs",
     "build": "bun run --filter @ohah/electron-mcp-server build && bun run --filter electron-mcp-demo build",
     "build:mcp": "bun run --filter @ohah/electron-mcp-server build",
     "build:demo": "bun run --filter electron-mcp-demo build",
