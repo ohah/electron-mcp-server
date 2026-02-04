@@ -6,6 +6,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerGetElectronWindowInfo } from './window-info';
+import { registerGetElectronProcessStructure } from './process-structure';
 import { registerSendCommandToElectron } from './command';
 import { registerInputTools } from './input';
 import { registerConsoleTools } from './console';
@@ -17,9 +18,14 @@ import { registerEvaluateScript } from './evaluate-script';
 import { registerDebuggingStubTools } from './debugging-stub';
 import { registerTakeSnapshot } from './snapshot';
 import { registerTakeScreenshot } from './screenshot';
+import { registerResourceUsageTool } from './resource-usage';
+import { registerMainProfilerTools } from './main-profiler';
 
 export function registerAllTools(server: McpServer): void {
   registerGetElectronWindowInfo(server);
+  registerGetElectronProcessStructure(server);
+  registerResourceUsageTool(server);
+  registerMainProfilerTools(server);
   registerSendCommandToElectron(server);
   registerInputTools(server);
   registerConsoleTools(server);
