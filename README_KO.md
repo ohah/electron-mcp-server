@@ -14,6 +14,8 @@ MIT © [ohah](https://github.com/ohah)
    npm install -g @ohah/electron-mcp-server
    ```
 
+   `npx`를 사용하면 설치 없이 2단계만 진행하면 됩니다.
+
 2. **Cursor에 MCP 서버 추가**
    - **Cursor 설정** → **MCP** 이동 (또는 프로젝트의 `.cursor/mcp.json` 편집).
    - 다음 내용 추가:
