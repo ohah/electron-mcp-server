@@ -77,6 +77,13 @@ export function registerMainProfilerTools(server: McpServer): void {
       }
       const ws = await openMainWs();
       mainCpuProfileWs = ws;
+      const currentCpuWs = ws;
+      ws.on('close', () => {
+        if (mainCpuProfileWs === currentCpuWs) mainCpuProfileWs = null;
+      });
+      ws.on('error', () => {
+        if (mainCpuProfileWs === currentCpuWs) mainCpuProfileWs = null;
+      });
       try {
         if (params.samplingIntervalMicroseconds != null) {
           await sendCdp(ws, 'Profiler.setSamplingInterval', {
@@ -156,6 +163,13 @@ export function registerMainProfilerTools(server: McpServer): void {
       }
       const ws = await openMainWs();
       mainHeapSamplingWs = ws;
+      const currentHeapWs = ws;
+      ws.on('close', () => {
+        if (mainHeapSamplingWs === currentHeapWs) mainHeapSamplingWs = null;
+      });
+      ws.on('error', () => {
+        if (mainHeapSamplingWs === currentHeapWs) mainHeapSamplingWs = null;
+      });
       try {
         await sendCdp(ws, 'HeapProfiler.enable');
         const methodParams: { samplingInterval?: number; stackDepth?: number } = {};
