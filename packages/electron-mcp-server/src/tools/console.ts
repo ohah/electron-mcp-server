@@ -362,6 +362,11 @@ function formatMessageEntry(m: ConsoleMessageEntry): object {
   };
 }
 
+/** Chrome DevTools MCP 스타일 한 줄 요약. list 응답용. */
+function formatMessageOneLine(m: ConsoleMessageEntry): string {
+  return `msgid=${m.msgid} [${m.level}] ${m.text}`;
+}
+
 export function registerConsoleTools(server: McpServer): void {
   const s = server as {
     registerTool(
@@ -374,7 +379,7 @@ export function registerConsoleTools(server: McpServer): void {
     'list_console_messages',
     {
       description:
-        'List console messages from the selected renderer and, when includeMainProcess is true, from the Electron main process. Messages are merged and sorted by time. Supports Console.messageAdded, Log.entryAdded (browser log), Runtime.exceptionThrown. Each entry has targetType (main|renderer), targetId, targetTitle. Use msgid in get_console_message.',
+        'List console messages for the currently selected page (and main process when includeMainProcess is true). One line per message: msgid=N [level] text. Use msgid in get_console_message for details. Chrome DevTools MCP 스타일.',
       inputSchema: listSchema,
     },
     async (args: unknown) => {
@@ -389,20 +394,17 @@ export function registerConsoleTools(server: McpServer): void {
         pageSize != null && pageSize > 0
           ? all.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
           : all;
-      const list = slice.map((m) => ({
-        msgid: m.msgid,
-        targetType: m.targetType,
-        targetId: m.targetId,
-        targetTitle: m.targetTitle,
-        timestamp: m.timestamp,
-        level: m.level,
-        text: m.text,
-        source: m.source,
-        url: m.url,
-        line: m.line,
-        column: m.column,
-      }));
-      const text = JSON.stringify(list, null, 2);
+      const lines: string[] = [];
+      if (pageSize != null && pageSize > 0 && all.length > 0) {
+        const totalPages = Math.ceil(all.length / pageSize);
+        const startIndex = pageIdx * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, all.length);
+        lines.push(
+          `Showing ${startIndex + 1}-${endIndex} of ${all.length} (Page ${pageIdx + 1} of ${totalPages}).`
+        );
+      }
+      lines.push(...slice.map(formatMessageOneLine));
+      const text = lines.join('\n');
       return { content: [{ type: 'text' as const, text }] };
     }
   );
@@ -453,7 +455,17 @@ export function registerConsoleTools(server: McpServer): void {
         pageSize != null && pageSize > 0
           ? all.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
           : all;
-      const text = JSON.stringify(slice.map(formatMessageEntry), null, 2);
+      const lines: string[] = [];
+      if (pageSize != null && pageSize > 0 && all.length > 0) {
+        const totalPages = Math.ceil(all.length / pageSize);
+        const startIndex = pageIdx * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, all.length);
+        lines.push(
+          `Showing ${startIndex + 1}-${endIndex} of ${all.length} (Page ${pageIdx + 1} of ${totalPages}).`
+        );
+      }
+      lines.push(...slice.map(formatMessageOneLine));
+      const text = lines.join('\n');
       return { content: [{ type: 'text' as const, text }] };
     }
   );
@@ -477,7 +489,17 @@ export function registerConsoleTools(server: McpServer): void {
         pageSize != null && pageSize > 0
           ? all.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
           : all;
-      const text = JSON.stringify(slice.map(formatMessageEntry), null, 2);
+      const lines: string[] = [];
+      if (pageSize != null && pageSize > 0 && all.length > 0) {
+        const totalPages = Math.ceil(all.length / pageSize);
+        const startIndex = pageIdx * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, all.length);
+        lines.push(
+          `Showing ${startIndex + 1}-${endIndex} of ${all.length} (Page ${pageIdx + 1} of ${totalPages}).`
+        );
+      }
+      lines.push(...slice.map(formatMessageOneLine));
+      const text = lines.join('\n');
       return { content: [{ type: 'text' as const, text }] };
     }
   );

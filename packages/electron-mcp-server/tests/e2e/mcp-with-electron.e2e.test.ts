@@ -235,9 +235,9 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
     const text = content.find((c) => c.type === 'text')?.text ?? '';
     expect(text).toBeDefined();
-    // CI/헤드리스에서는 콘솔 수집이 비어 있을 수 있음 — 메시지가 있으면 형식만 검사
-    if (text !== '[]' && text.length > 0) {
-      expect(text).toMatch(/Electron MCP Demo|console-api/);
+    // CI/헤드리스에서는 콘솔 수집이 비어 있을 수 있음 — 메시지가 있으면 형식만 검사 (Chrome 스타일 msgid=N [level] text)
+    if (text.length > 0) {
+      expect(text).toMatch(/msgid=\d+|Showing/);
     }
   });
 
