@@ -308,14 +308,14 @@ export async function getElectronProcessStructure(
     }
     const capabilities = {
       main: [
-        'Runtime.evaluate (Node 컨텍스트). 메인 전용: app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, globalShortcut, protocol, Node(require/fs/path).',
-        '메인 이벤트: app(ready, window-all-closed, before-quit, open-file, activate), BrowserWindow(ready-to-show, closed, did-finish-load), ipcMain(channel).',
-        'DOM 없음 → 스크린샷/클릭/스냅샷 불가. 자세한 목록은 docs/electron-main-process.md 참고.',
+        'Runtime.evaluate (Node context). Main-only: app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, globalShortcut, protocol, Node(require/fs/path).',
+        'Main events: app(ready, window-all-closed, before-quit, open-file, activate), BrowserWindow(ready-to-show, closed, did-finish-load), ipcMain(channel).',
+        'No DOM → no screenshot/click/snapshot. See docs/electron-main-process.md for details.',
       ],
       renderers: [
-        'DOM 접근·클릭·스크린샷·스냅샷',
-        'Runtime.evaluate (웹 페이지 컨텍스트)',
-        'select_page로 id 선택 후 다른 도구 사용',
+        'DOM access, click, screenshot, snapshot',
+        'Runtime.evaluate (web page context)',
+        'Use select_page to pick id then use other tools',
       ],
     };
     const appItems: ElectronAppStructureItem[] = apps.map((app) => {
@@ -364,7 +364,7 @@ export async function getElectronProcessStructure(
       capabilities,
       message:
         apps.length > 1
-          ? `Electron 앱 ${apps.length}개 (ports ${apps.map((a) => a.port).join(', ')}). select_port로 작업할 앱 선택. 현재: port ${app.port}`
+          ? `${apps.length} Electron app(s) (ports ${apps.map((a) => a.port).join(', ')}). Use select_port to choose. Current: port ${app.port}`
           : `Electron: main ${mainTarget ? '1' : '0'}, renderers ${pageTargets.length} (port ${app.port})`,
       automationReady: all.length > 0,
       apps: appItems.length > 0 ? appItems : undefined,

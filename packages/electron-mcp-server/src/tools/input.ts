@@ -77,45 +77,48 @@ const ts = () => Date.now() / 1000;
 // --- click ---
 const clickSchema = z
   .object({
-    uid: z.string().optional().describe('take_snapshot에서 얻은 요소 uid 또는 CSS 선택자'),
-    selector: z.string().optional().describe('CSS 선택자 (uid 대신 사용 가능, 하위 호환)'),
-    dblClick: z.boolean().optional().default(false).describe('더블클릭 여부'),
-    includeSnapshot: z.boolean().optional().describe('응답에 스냅샷 포함 (선택)'),
+    uid: z.string().optional().describe('Element uid from take_snapshot or CSS selector'),
+    selector: z
+      .string()
+      .optional()
+      .describe('CSS selector (alternative to uid, backward compatible)'),
+    dblClick: z.boolean().optional().default(false).describe('Double-click when true'),
+    includeSnapshot: z.boolean().optional().describe('Include snapshot in response (optional)'),
   })
-  .refine((o) => o.uid != null || o.selector != null, { message: 'uid 또는 selector 필요' });
+  .refine((o) => o.uid != null || o.selector != null, { message: 'uid or selector required' });
 
 // --- hover ---
 const hoverSchema = z.object({
-  uid: z.string().describe('take_snapshot에서 얻은 요소 uid 또는 CSS 선택자'),
-  includeSnapshot: z.boolean().optional().describe('응답에 스냅샷 포함 (선택)'),
+  uid: z.string().describe('Element uid from take_snapshot or CSS selector'),
+  includeSnapshot: z.boolean().optional().describe('Include snapshot in response (optional)'),
 });
 
 // --- drag ---
 const dragSchema = z.object({
-  from_uid: z.string().describe('드래그할 요소 uid'),
-  to_uid: z.string().describe('드롭할 대상 요소 uid'),
-  includeSnapshot: z.boolean().optional().describe('응답에 스냅샷 포함 (선택)'),
+  from_uid: z.string().describe('Source element uid to drag'),
+  to_uid: z.string().describe('Target element uid to drop on'),
+  includeSnapshot: z.boolean().optional().describe('Include snapshot in response (optional)'),
 });
 
 // --- fill ---
 const fillSchema = z.object({
-  uid: z.string().describe('입력/텍스트/select 요소 uid'),
-  value: z.string().describe('쓸 값 또는 select 옵션 텍스트'),
-  includeSnapshot: z.boolean().optional().describe('응답에 스냅샷 포함 (선택)'),
+  uid: z.string().describe('Input/text/select element uid'),
+  value: z.string().describe('Value to set or select option text'),
+  includeSnapshot: z.boolean().optional().describe('Include snapshot in response (optional)'),
 });
 
 // --- fill_form ---
 const fillFormSchema = z.object({
   elements: z
     .array(z.object({ uid: z.string(), value: z.string() }))
-    .describe('채울 요소들 { uid, value }'),
-  includeSnapshot: z.boolean().optional().describe('응답에 스냅샷 포함 (선택)'),
+    .describe('Elements to fill: { uid, value }'),
+  includeSnapshot: z.boolean().optional().describe('Include snapshot in response (optional)'),
 });
 
-// --- handle_dialog (주석 처리됨: Electron 리모트에서 미지원) ---
+// --- handle_dialog (commented out: not supported in Electron remote) ---
 const _handleDialogSchema = z.object({
-  action: z.enum(['accept', 'dismiss']).describe('accept 또는 dismiss'),
-  promptText: z.string().optional().describe('prompt 시 입력할 텍스트'),
+  action: z.enum(['accept', 'dismiss']).describe('accept or dismiss'),
+  promptText: z.string().optional().describe('Text to enter for prompt'),
 });
 
 // --- press_key ---
@@ -123,16 +126,16 @@ const pressKeySchema = z.object({
   key: z
     .string()
     .describe(
-      '키 또는 조합. 예: Enter, Control+A, Control+Shift+R. Modifiers: Control, Shift, Alt, Meta'
+      'Key or combination, e.g. Enter, Control+A, Control+Shift+R. Modifiers: Control, Shift, Alt, Meta'
     ),
-  includeSnapshot: z.boolean().optional().describe('응답에 스냅샷 포함 (선택)'),
+  includeSnapshot: z.boolean().optional().describe('Include snapshot in response (optional)'),
 });
 
 // --- upload_file ---
 const uploadFileSchema = z.object({
-  uid: z.string().describe('파일 입력 요소 또는 파일 선택기를 여는 요소 uid'),
-  filePath: z.string().describe('업로드할 파일 로컬 경로'),
-  includeSnapshot: z.boolean().optional().describe('응답에 스냅샷 포함 (선택)'),
+  uid: z.string().describe('File input element or element that opens file picker uid'),
+  filePath: z.string().describe('Local path of file to upload'),
+  includeSnapshot: z.boolean().optional().describe('Include snapshot in response (optional)'),
 });
 
 // 키 조합 파싱: "Control+A" -> { modifiers: number, key: string }
@@ -204,7 +207,7 @@ export function registerInputTools(server: McpServer): void {
 
   register(
     'click',
-    '제공된 요소를 클릭합니다 (take_snapshot uid 또는 CSS 선택자).',
+    'Click the given element (take_snapshot uid or CSS selector).',
     clickSchema,
     async (args) => {
       const parsed = clickSchema.parse(args);
@@ -239,7 +242,7 @@ export function registerInputTools(server: McpServer): void {
     }
   );
 
-  register('hover', '제공된 요소 위에 마우스를 올립니다.', hoverSchema, async (args) => {
+  register('hover', 'Hover the mouse over the given element.', hoverSchema, async (args) => {
     const { uid } = hoverSchema.parse(args);
     const target = await findElectronTarget();
     await withCdpWs(target, async (ws) => {
@@ -256,7 +259,7 @@ export function registerInputTools(server: McpServer): void {
 
   register(
     'drag',
-    '한 요소를 다른 요소 위로 드래그합니다. CDP Input.dispatchDragEvent로 실제 drop 이벤트 전달 후 스냅샷으로 검증.',
+    'Drag one element onto another. Uses CDP Input.dispatchDragEvent; verifies drop via snapshot.',
     dragSchema,
     async (args) => {
       const { from_uid, to_uid, includeSnapshot } = dragSchema.parse(args);
@@ -335,7 +338,12 @@ export function registerInputTools(server: McpServer): void {
             returnByValue: true,
           })) as { result?: { type?: string; value?: string } };
           const text = r?.result?.type === 'string' ? (r.result.value ?? '') : '';
-          return text.includes('드롭 완료') || text.includes('드롭됨');
+          return (
+            text.includes('Drop complete') ||
+            text.includes('Dropped') ||
+            text.includes('드롭 완료') ||
+            text.includes('드롭됨')
+          );
         } finally {
           conn.close();
         }
@@ -343,15 +351,15 @@ export function registerInputTools(server: McpServer): void {
       const lines = [
         verifyResult
           ? 'Successfully dragged an element'
-          : 'Drag events sent but drop was not detected on page (드롭 완료 없음).',
+          : 'Drag events sent but drop was not detected on page.',
       ];
       if (includeSnapshot) {
         const { takeSnapshotImpl } = await import('./snapshot.js');
         const { text } = await takeSnapshotImpl(target);
-        lines.push('\n--- 스냅샷 ---\n' + text);
+        lines.push('\n--- Snapshot ---\n' + text);
       }
       if (!verifyResult) {
-        lines.push('\n(드롭 대상 요소의 onDrop이 호출되어야 "드롭 완료"가 표시됩니다.)');
+        lines.push('\n(The drop target onDrop must run for "Drop complete" to appear.)');
       }
       return { content: [{ type: 'text', text: lines.join('') }] };
     }
@@ -359,7 +367,7 @@ export function registerInputTools(server: McpServer): void {
 
   register(
     'fill',
-    'input/textarea에 텍스트를 입력하거나 select에서 옵션을 선택합니다.',
+    'Type text into input/textarea or select an option in a select.',
     fillSchema,
     async (args) => {
       const { uid, value } = fillSchema.parse(args);
@@ -390,7 +398,7 @@ export function registerInputTools(server: McpServer): void {
     }
   );
 
-  register('fill_form', '여러 폼 필드를 한 번에 채웁니다.', fillFormSchema, async (args) => {
+  register('fill_form', 'Fill multiple form fields at once.', fillFormSchema, async (args) => {
     const { elements } = fillFormSchema.parse(args);
     const target = await findElectronTarget();
     for (const { uid, value } of elements) {
@@ -431,7 +439,7 @@ export function registerInputTools(server: McpServer): void {
 
   register(
     'press_key',
-    '키 또는 키 조합을 누릅니다 (단축키, 내비게이션 키 등). fill()로 불가할 때 사용.',
+    'Press a key or key combination (shortcuts, navigation keys, etc.). Use when fill() is not enough.',
     pressKeySchema,
     async (args) => {
       const { key } = pressKeySchema.parse(args);
@@ -461,7 +469,7 @@ export function registerInputTools(server: McpServer): void {
 
   register(
     'upload_file',
-    '지정 요소를 통해 파일을 업로드합니다.',
+    'Upload a file through the given element.',
     uploadFileSchema,
     async (args) => {
       const { uid, filePath } = uploadFileSchema.parse(args);

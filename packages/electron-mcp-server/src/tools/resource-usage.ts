@@ -13,7 +13,7 @@ const schema = z.object({
     .boolean()
     .optional()
     .default(true)
-    .describe('true면 os.loadavg(), freemem(), totalmem() 포함. 기본 true.'),
+    .describe('If true, include os.loadavg(), freemem(), totalmem(). Default true.'),
 });
 
 const RESOURCE_SCRIPT = `
@@ -61,7 +61,7 @@ export function registerResourceUsageTool(server: McpServer): void {
     'get_electron_main_resource_usage',
     {
       description:
-        'Electron 메인 프로세스의 리소스 사용량을 반환합니다. memory(rss, heapUsed 등), cpu(user/system 마이크로초), pid. includeOs=true면 os.loadavg(), freemem(), totalmem() 포함.',
+        'Returns resource usage of the Electron main process: memory (rss, heapUsed, etc.), cpu (user/system in microseconds), pid. includeOs=true adds os.loadavg(), freemem(), totalmem().',
       inputSchema: schema,
     },
     async (args: unknown) => {
