@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "electron-mcp": {
+    "electron-mcp-local": {
       "command": "npx",
       "args": ["-y", "@ohah/electron-mcp-server"]
     }
