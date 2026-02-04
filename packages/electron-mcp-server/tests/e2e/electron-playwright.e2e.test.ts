@@ -22,12 +22,11 @@ function getDemoElectronPath(): string | undefined {
   return undefined;
 }
 
-/** Playwright Electron firstWindow() 타임아웃 이슈 있음. 디스플레이 있는 환경에서만 실행 권장. */
-const skipElectronE2E = !!process.env.CI;
+/** CI 또는 RUN_ELECTRON_E2E=1 미설정 시 스킵. 디스플레이 있는 환경에서 RUN_ELECTRON_E2E=1 로 실행. */
+const skipElectronE2E = !!process.env.CI || process.env.RUN_ELECTRON_E2E !== '1';
 
-describe('Electron Playwright E2E', () => {
+describe.skipIf(skipElectronE2E)('Electron Playwright E2E', () => {
   it('launches demo app and gets first window', async () => {
-    if (skipElectronE2E) return;
     const { _electron: electron } = await import('playwright');
     const launchOpts: { cwd: string; args: string[]; timeout: number; executablePath?: string } = {
       cwd: demoDir,
@@ -46,10 +45,9 @@ describe('Electron Playwright E2E', () => {
     } finally {
       await electronApp.close();
     }
-  }, 30000);
+  }, 35000);
 
   it('clicks button and sees updated text', async () => {
-    if (skipElectronE2E) return;
     const { _electron: electron } = await import('playwright');
     const launchOpts: { cwd: string; args: string[]; timeout: number; executablePath?: string } = {
       cwd: demoDir,
@@ -68,10 +66,9 @@ describe('Electron Playwright E2E', () => {
     } finally {
       await electronApp.close();
     }
-  }, 30000);
+  }, 35000);
 
   it('captures console messages', async () => {
-    if (skipElectronE2E) return;
     const { _electron: electron } = await import('playwright');
     const launchOpts: { cwd: string; args: string[]; timeout: number; executablePath?: string } = {
       cwd: demoDir,
@@ -94,5 +91,5 @@ describe('Electron Playwright E2E', () => {
     } finally {
       await electronApp.close();
     }
-  }, 30000);
+  }, 35000);
 });
