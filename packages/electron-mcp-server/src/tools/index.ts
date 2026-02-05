@@ -20,12 +20,16 @@ import { registerTakeSnapshot } from './snapshot';
 import { registerTakeScreenshot } from './screenshot';
 import { registerResourceUsageTool } from './resource-usage';
 import { registerMainProfilerTools } from './main-profiler';
+import { registerIpcMainTools } from './ipc-main';
+import { registerNetworkMainTools } from './network-main';
 
 export function registerAllTools(server: McpServer): void {
   registerGetElectronWindowInfo(server);
   registerGetElectronProcessStructure(server);
   registerResourceUsageTool(server);
   registerMainProfilerTools(server);
+  registerIpcMainTools(server);
+  registerNetworkMainTools(server);
   registerSendCommandToElectron(server);
   registerInputTools(server);
   registerConsoleTools(server);
