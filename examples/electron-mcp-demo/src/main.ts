@@ -1,8 +1,10 @@
 import * as electron from 'electron';
 import path from 'node:path';
+import https from 'node:https';
 
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
+const ipcMain = electron.ipcMain;
 
 if (!app || !BrowserWindow) {
   throw new Error('Electron app not available. Run with: electron . (not node)');
@@ -49,6 +51,28 @@ const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 app.whenReady().then(() => {
   console.log('[main] app ready');
   createWindow(devServerUrl);
+
+  // MCP list_electron_main_ipc_events로 래핑 설치 후, 렌더러가 이걸 호출하면 데모용 IPC 핸들러 등록 (래핑된 상태로)
+  ipcMain.handle('register-demo-handlers', () => {
+    ipcMain.handle('test-ipc', (_event, ...args) => Promise.resolve({ ok: true, args }));
+    ipcMain.on('test-ipc-on', (_event, ...args) => {
+      console.log('[main] test-ipc-on received', args);
+    });
+    return 'ok';
+  });
+
+  // 메인 프로세스에서 HTTP 요청 → list_electron_main_network_requests로 감지용
+  ipcMain.handle('main-fetch-httpbin', () => {
+    return new Promise((resolve, reject) => {
+      https
+        .get('https://httpbin.org/get', (res) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => resolve({ status: res.statusCode }));
+        })
+        .on('error', reject);
+    });
+  });
 
   app.on('window-all-closed', () => {
     console.log('[main] window-all-closed');
