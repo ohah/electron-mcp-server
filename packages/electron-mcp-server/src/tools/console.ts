@@ -1,9 +1,7 @@
 /**
- * MCP tools: list_console_messages, get_console_message,
- * get_electron_main_console_messages, get_electron_renderer_console_messages,
- * get_electron_main_console_message, get_electron_renderer_console_message.
+ * MCP tools: list_console_messages, get_console_message.
  * Chrome DevTools MCP 스타일 + 메인 프로세스 콘솔 병합, Log/Runtime 이벤트 수집.
- * 이벤트 구분: 메인 전용/렌더러 전용 도구로 targetType 구분.
+ * list에 targetType 필터(main|renderer|all), get 응답에 targetType 포함.
  * @see https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md
  */
 
@@ -326,24 +324,17 @@ const listSchema = z.object({
     .describe(
       'Include console messages from the Electron main process (node target). Default true. Main and renderer messages are merged and sorted by timestamp.'
     ),
+  targetType: z
+    .enum(['all', 'main', 'renderer'])
+    .optional()
+    .default('all')
+    .describe(
+      'Filter by process: "all" (default), "main" (Electron main process only), "renderer" (page only).'
+    ),
 });
 
 const getSchema = z.object({
   msgid: z.number().describe('The msgid of a console message from the listed console messages.'),
-});
-
-/** list 공통 스키마 (includeMainProcess 제외, 메인/렌더러 전용 도구용) */
-const listTargetSchema = z.object({
-  pageIdx: z.number().optional().describe('Page number (0-based). Omit for first page.'),
-  pageSize: z.number().optional().describe('Max messages to return. Omit for all.'),
-  types: z
-    .array(z.string())
-    .optional()
-    .describe('Filter by level or source (e.g. log, warning, error, javascript, console-api).'),
-  includePreservedMessages: z
-    .boolean()
-    .optional()
-    .describe('Include last 3 navigations. Default false.'),
 });
 
 function formatMessageEntry(m: ConsoleMessageEntry): object {
@@ -362,9 +353,9 @@ function formatMessageEntry(m: ConsoleMessageEntry): object {
   };
 }
 
-/** Chrome DevTools MCP 스타일 한 줄 요약. list 응답용. */
+/** Chrome DevTools MCP 스타일 한 줄 요약. list 응답용. targetType으로 메인/렌더러 구분. */
 function formatMessageOneLine(m: ConsoleMessageEntry): string {
-  return `msgid=${m.msgid} [${m.level}] ${m.text}`;
+  return `msgid=${m.msgid} [${m.targetType}] [${m.level}] ${m.text}`;
 }
 
 export function registerConsoleTools(server: McpServer): void {
@@ -379,7 +370,7 @@ export function registerConsoleTools(server: McpServer): void {
     'list_console_messages',
     {
       description:
-        'List console messages for the currently selected page (and main process when includeMainProcess is true). One line per message: msgid=N [level] text. Use msgid in get_console_message for details. Chrome DevTools MCP style.',
+        'List console messages for the currently selected page (and main process when includeMainProcess is true). Use targetType to filter by main|renderer|all. One line per message: msgid=N [main|renderer] [level] text. Use msgid in get_console_message for details (response includes targetType). Chrome DevTools MCP style.',
       inputSchema: listSchema,
     },
     async (args: unknown) => {
@@ -387,7 +378,11 @@ export function registerConsoleTools(server: McpServer): void {
       await startConsoleCaptureIfNeeded(params.includeMainProcess ?? true);
       const includePreserved = params.includePreservedMessages ?? false;
       const types = params.types;
-      const all = getStoredMessages(includePreserved, types);
+      const targetFilter = params.targetType ?? 'all';
+      let all = getStoredMessages(includePreserved, types);
+      if (targetFilter !== 'all') {
+        all = all.filter((m) => m.targetType === targetFilter);
+      }
       const pageIdx = params.pageIdx ?? 0;
       const pageSize = params.pageSize;
       const slice =
@@ -427,146 +422,6 @@ export function registerConsoleTools(server: McpServer): void {
             {
               type: 'text' as const,
               text: `Console message not found for msgid ${msgid}. Use msgid from list_console_messages.`,
-            },
-          ],
-        };
-      }
-      const text = JSON.stringify(formatMessageEntry(entry), null, 2);
-      return { content: [{ type: 'text' as const, text }] };
-    }
-  );
-
-  s.registerTool(
-    'get_electron_main_console_messages',
-    {
-      description:
-        'List only Electron main process console messages (targetType main). Supports pageIdx, pageSize, types, includePreservedMessages.',
-      inputSchema: listTargetSchema,
-    },
-    async (args: unknown) => {
-      const params = listTargetSchema.parse(args ?? {});
-      await startConsoleCaptureIfNeeded(true);
-      const all = getStoredMessages(params.includePreservedMessages ?? false, params.types).filter(
-        (m) => m.targetType === 'main'
-      );
-      const pageIdx = params.pageIdx ?? 0;
-      const pageSize = params.pageSize;
-      const slice =
-        pageSize != null && pageSize > 0
-          ? all.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
-          : all;
-      const lines: string[] = [];
-      if (pageSize != null && pageSize > 0 && all.length > 0) {
-        const totalPages = Math.ceil(all.length / pageSize);
-        const startIndex = pageIdx * pageSize;
-        const endIndex = Math.min(startIndex + pageSize, all.length);
-        lines.push(
-          `Showing ${startIndex + 1}-${endIndex} of ${all.length} (Page ${pageIdx + 1} of ${totalPages}).`
-        );
-      }
-      lines.push(...slice.map(formatMessageOneLine));
-      const text = lines.join('\n');
-      return { content: [{ type: 'text' as const, text }] };
-    }
-  );
-
-  s.registerTool(
-    'get_electron_renderer_console_messages',
-    {
-      description:
-        'List only Electron renderer process console messages (targetType renderer). Supports pageIdx, pageSize, types, includePreservedMessages.',
-      inputSchema: listTargetSchema,
-    },
-    async (args: unknown) => {
-      const params = listTargetSchema.parse(args ?? {});
-      await startConsoleCaptureIfNeeded(true);
-      const all = getStoredMessages(params.includePreservedMessages ?? false, params.types).filter(
-        (m) => m.targetType === 'renderer'
-      );
-      const pageIdx = params.pageIdx ?? 0;
-      const pageSize = params.pageSize;
-      const slice =
-        pageSize != null && pageSize > 0
-          ? all.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
-          : all;
-      const lines: string[] = [];
-      if (pageSize != null && pageSize > 0 && all.length > 0) {
-        const totalPages = Math.ceil(all.length / pageSize);
-        const startIndex = pageIdx * pageSize;
-        const endIndex = Math.min(startIndex + pageSize, all.length);
-        lines.push(
-          `Showing ${startIndex + 1}-${endIndex} of ${all.length} (Page ${pageIdx + 1} of ${totalPages}).`
-        );
-      }
-      lines.push(...slice.map(formatMessageOneLine));
-      const text = lines.join('\n');
-      return { content: [{ type: 'text' as const, text }] };
-    }
-  );
-
-  s.registerTool(
-    'get_electron_main_console_message',
-    {
-      description:
-        'Return the console message for the given msgid. Only for main process (main) messages; returns error for renderer messages.',
-      inputSchema: getSchema,
-    },
-    async (args: unknown) => {
-      const params = getSchema.parse(args);
-      await startConsoleCaptureIfNeeded(captureMain);
-      const entry = byMsgId.get(params.msgid);
-      if (!entry) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `Console message not found for msgid ${params.msgid}. Use msgid from get_electron_main_console_messages or list_console_messages.`,
-            },
-          ],
-        };
-      }
-      if (entry.targetType !== 'main') {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `Message ${params.msgid} is not from main process (targetType=${entry.targetType}). Use get_electron_renderer_console_message for renderer messages.`,
-            },
-          ],
-        };
-      }
-      const text = JSON.stringify(formatMessageEntry(entry), null, 2);
-      return { content: [{ type: 'text' as const, text }] };
-    }
-  );
-
-  s.registerTool(
-    'get_electron_renderer_console_message',
-    {
-      description:
-        'Return the console message for the given msgid. Only for renderer process messages; returns error for main messages.',
-      inputSchema: getSchema,
-    },
-    async (args: unknown) => {
-      const params = getSchema.parse(args);
-      await startConsoleCaptureIfNeeded(captureMain);
-      const entry = byMsgId.get(params.msgid);
-      if (!entry) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `Console message not found for msgid ${params.msgid}. Use msgid from get_electron_renderer_console_messages or list_console_messages.`,
-            },
-          ],
-        };
-      }
-      if (entry.targetType !== 'renderer') {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `Message ${params.msgid} is not from renderer process (targetType=${entry.targetType}). Use get_electron_main_console_message for main process messages.`,
             },
           ],
         };

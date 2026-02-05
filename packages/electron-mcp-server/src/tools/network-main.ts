@@ -1,15 +1,14 @@
 /**
- * MCP tools: list_electron_main_network_requests, get_electron_main_network_request
- * 메인 프로세스 HTTP/HTTPS 감지: http.request / https.request 래핑, 앱 버퍼 → list 호출 시 서버로 가져와 저장 후 앱 버퍼 비우기.
+ * 메인 프로세스 HTTP/HTTPS 감지: http.request / https.request 래핑, 앱 버퍼 → fetch 시 서버로 가져와 저장 후 앱 버퍼 비우기.
+ * list_network_requests / get_network_request (network.ts)에서 통합 사용.
  * @see packages/electron-mcp-server/docs/electron-main-process.md
  */
 
-import { z } from 'zod';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { executeInElectron, getMainProcessTarget } from './electron';
 
 export interface MainNetworkRequestEntry {
   requestId: string;
+  targetType: 'main';
   method: string;
   url: string;
   requestHeaders?: Record<string, string>;
@@ -18,13 +17,14 @@ export interface MainNetworkRequestEntry {
   time: number;
 }
 
+// CDP eval 간 동일 require 캐시에 패치가 보이려면 동기 패치 필요. setImmediate 사용 시
+// 이후 eval에서 require('https')가 패치된 모듈을 보지 못해 캡처되지 않음.
 const INSTALL_SCRIPT = `
 (function(){
-  if (typeof global.__httpMonitorBuffer !== 'undefined') return 'already installed';
+  if (typeof global.__httpMonitorBuffer !== 'undefined') return Promise.resolve('already installed');
+  global.__httpMonitorBuffer = [];
+  global.__httpMonitorNextId = 0;
   try {
-    global.__httpMonitorNextId = 0;
-    global.__httpMonitorBuffer = [];
-
     function wrapRequest(orig, protocol) {
       return function(options, callback) {
         global.__httpMonitorNextId = (global.__httpMonitorNextId || 0) + 1;
@@ -34,7 +34,6 @@ const INSTALL_SCRIPT = `
         var method = (opts.method || 'GET').toUpperCase();
         var entry = { requestId: reqId, method: method, url: url, time: Date.now(), requestHeaders: opts.headers || {} };
         global.__httpMonitorBuffer.push(entry);
-
         var req = orig.apply(this, arguments);
         req.on('response', function(res) {
           entry.responseStatus = res.statusCode;
@@ -43,14 +42,25 @@ const INSTALL_SCRIPT = `
         return req;
       };
     }
-
     var http = require('http');
     var https = require('https');
-    http.request = wrapRequest(http.request.bind(http), 'http');
-    https.request = wrapRequest(https.request.bind(https), 'https');
-    return 'installed';
+    var wrapHttp = wrapRequest(http.request.bind(http), 'http');
+    var wrapHttps = wrapRequest(https.request.bind(https), 'https');
+    http.request = wrapHttp;
+    https.request = wrapHttps;
+    http.get = function(input, options, cb) {
+      var req = http.request(input, options, cb);
+      if (req) req.end();
+      return req;
+    };
+    https.get = function(input, options, cb) {
+      var req = https.request(input, options, cb);
+      if (req) req.end();
+      return req;
+    };
+    return Promise.resolve('installed');
   } catch (e) {
-    return 'error: ' + (e && e.message ? e.message : String(e));
+    return Promise.resolve('error: ' + (e && e.message ? e.message : String(e)));
   }
 })();
 `;
@@ -103,6 +113,7 @@ async function fetchAndClearBuffer(
         const rid = item.requestId || 'main-?' + orderList.length;
         const entry: MainNetworkRequestEntry = {
           requestId: rid,
+          targetType: 'main',
           method: item.method ?? 'GET',
           url: item.url ?? '',
           time: typeof item.time === 'number' ? item.time : Date.now(),
@@ -120,113 +131,21 @@ async function fetchAndClearBuffer(
   await executeInElectron(CLEAR_BUFFER_SCRIPT, mainTarget);
 }
 
-const listSchema = z.object({
-  pageIdx: z.number().optional().describe('Page number (0-based). Omit for first page.'),
-  pageSize: z.number().optional().describe('Max requests to return. Omit for all.'),
-});
-
-const getSchema = z.object({
-  requestId: z.string().describe('Request ID from list_electron_main_network_requests.'),
-});
-
-async function listMainNetworkRequestsHandler(args: unknown) {
-  const params = listSchema.parse(args ?? {});
+/** 메인 프로세스 버퍼를 서버 저장소로 가져오고 앱 버퍼 비우기. list_network_requests에서 호출. */
+export async function fetchMainNetworkToStore(): Promise<void> {
   const mainTarget = await getMainProcessTarget();
-  if (!mainTarget) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            { error: 'No main process target. Run the Electron app with --remote-debugging-port.' },
-            null,
-            2
-          ),
-        },
-      ],
-    };
-  }
+  if (!mainTarget) return;
   const installResult = await ensureInstalled(mainTarget);
-  if (!installResult) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            { error: 'Failed to install main network monitor in main process.' },
-            null,
-            2
-          ),
-        },
-      ],
-    };
-  }
+  if (!installResult) return;
   await fetchAndClearBuffer(mainTarget);
-  const pageIdx = params.pageIdx ?? 0;
-  const pageSize = params.pageSize;
-  const slice =
-    pageSize != null && pageSize > 0
-      ? orderList.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
-      : orderList;
-  const list = slice.map((rid) => {
-    const e = byRequestId.get(rid);
-    return e
-      ? {
-          requestId: e.requestId,
-          url: e.url,
-          method: e.method,
-          responseStatus: e.responseStatus,
-          time: e.time,
-        }
-      : { requestId: rid };
-  });
-  const text = JSON.stringify(list, null, 2);
-  return { content: [{ type: 'text' as const, text }] };
 }
 
-async function getMainNetworkRequestHandler(args: unknown) {
-  const params = getSchema.parse(args);
-  const entry = byRequestId.get(params.requestId);
-  if (!entry) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Request not found: ${params.requestId}. Use requestId from list_electron_main_network_requests.`,
-        },
-      ],
-    };
-  }
-  const text = JSON.stringify(entry, null, 2);
-  return { content: [{ type: 'text' as const, text }] };
+/** 메인 저장소에서 requestId로 한 건 조회. 없으면 null. */
+export function getMainNetworkRequest(requestId: string): MainNetworkRequestEntry | null {
+  return byRequestId.get(requestId) ?? null;
 }
 
-export function registerNetworkMainTools(server: McpServer): void {
-  const s = server as {
-    registerTool(
-      name: string,
-      def: { description: string; inputSchema: z.ZodTypeAny },
-      handler: (args: unknown) => Promise<unknown>
-    ): void;
-  };
-
-  s.registerTool(
-    'list_electron_main_network_requests',
-    {
-      description:
-        'List HTTP/HTTPS requests made from the Electron main process. Installs a minimal wrapper over http.request/https.request if needed, then fetches app buffer into server storage and clears the app buffer. Call repeatedly to see new requests.',
-      inputSchema: listSchema,
-    },
-    listMainNetworkRequestsHandler
-  );
-
-  s.registerTool(
-    'get_electron_main_network_request',
-    {
-      description:
-        'Get a single main-process network request by requestId from list_electron_main_network_requests.',
-      inputSchema: getSchema,
-    },
-    getMainNetworkRequestHandler
-  );
+/** 메인 저장소의 요청 목록 (targetType 포함). 시간순. */
+export function getMainNetworkRequestList(): MainNetworkRequestEntry[] {
+  return orderList.map((rid) => byRequestId.get(rid)).filter(Boolean) as MainNetworkRequestEntry[];
 }

@@ -29,8 +29,6 @@ export const IMPLEMENTED_IDS = new Set([
   'get_network_request',
   'list_electron_main_ipc_events',
   'get_electron_main_ipc_event',
-  'list_electron_main_network_requests',
-  'get_electron_main_network_request',
   'list_pages',
   'select_page',
   'navigate_page',
@@ -71,6 +69,4 @@ export const TOOLS: ToolItem[] = [
   { id: 'get_network_request', label: 'get_network_request' },
   { id: 'list_electron_main_ipc_events', label: 'list_electron_main_ipc_events' },
   { id: 'get_electron_main_ipc_event', label: 'get_electron_main_ipc_event' },
-  { id: 'list_electron_main_network_requests', label: 'list_electron_main_network_requests' },
-  { id: 'get_electron_main_network_request', label: 'get_electron_main_network_request' },
 ];

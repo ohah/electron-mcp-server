@@ -66,7 +66,7 @@ const schema = z.object({
 export const sendCommandToElectronTool = {
   name: 'send_command_to_electron' as const,
   description:
-    'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code). args.target=main runs in main process (only with command "eval"; DOM commands require renderer); use get_electron_main_console_messages for console output.',
+    'Run JavaScript in the Electron app. Commands: get_title, get_url, get_body_text, eval (args.code). args.target=main runs in main process (only with command "eval"; DOM commands require renderer); use list_console_messages or get_console_message for console output.',
   inputSchema: schema,
   handler: async (args: z.infer<typeof schema>) => {
     const command = args?.command ?? 'get_title';
