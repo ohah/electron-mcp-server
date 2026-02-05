@@ -30,7 +30,7 @@ const INSTALL_SCRIPT = `
         global.__httpMonitorNextId = (global.__httpMonitorNextId || 0) + 1;
         var reqId = protocol + '-' + global.__httpMonitorNextId;
         var opts = typeof options === 'string' ? require('url').parse(options) : (options || {});
-        var url = opts.href || (opts.protocol || 'http:') + '//' + (opts.hostname || opts.host || '') + (opts.path || opts.pathname || '/');
+        var url = opts.href || (opts.protocol || (protocol + ':')) + '//' + (opts.hostname || opts.host || '') + (opts.path || opts.pathname || '/');
         var method = (opts.method || 'GET').toUpperCase();
         var entry = { requestId: reqId, method: method, url: url, time: Date.now(), requestHeaders: opts.headers || {} };
         global.__httpMonitorBuffer.push(entry);
@@ -82,6 +82,9 @@ const CLEAR_BUFFER_SCRIPT = `
 })();
 `;
 
+/** 콘솔/렌더러 네트워크와 동일하게 서버 저장 개수 상한. 장기 실행 시 메모리 완화. */
+const MAX_MAIN_NETWORK_SAVED = 500;
+
 const byRequestId = new Map<string, MainNetworkRequestEntry>();
 const orderList: string[] = [];
 
@@ -93,42 +96,52 @@ async function ensureInstalled(
   return result && result.includes('installed') ? result : null;
 }
 
+let fetchAndClearMutex: Promise<void> = Promise.resolve();
+
 async function fetchAndClearBuffer(
   mainTarget: Awaited<ReturnType<typeof getMainProcessTarget>>
 ): Promise<void> {
   if (!mainTarget) return;
-  const raw = await executeInElectron(GET_BUFFER_SCRIPT, mainTarget);
-  try {
-    const arr = JSON.parse(raw) as Array<{
-      requestId: string;
-      method: string;
-      url: string;
-      time: number;
-      requestHeaders?: Record<string, string>;
-      responseStatus?: number;
-      responseStatusText?: string;
-    }>;
-    if (Array.isArray(arr)) {
-      for (const item of arr) {
-        const rid = item.requestId || 'main-?' + orderList.length;
-        const entry: MainNetworkRequestEntry = {
-          requestId: rid,
-          targetType: 'main',
-          method: item.method ?? 'GET',
-          url: item.url ?? '',
-          time: typeof item.time === 'number' ? item.time : Date.now(),
-          requestHeaders: item.requestHeaders,
-          responseStatus: item.responseStatus,
-          responseStatusText: item.responseStatusText,
-        };
-        byRequestId.set(rid, entry);
-        if (!orderList.includes(rid)) orderList.push(rid);
+  const next = fetchAndClearMutex.then(async () => {
+    const raw = await executeInElectron(GET_BUFFER_SCRIPT, mainTarget);
+    try {
+      const arr = JSON.parse(raw) as Array<{
+        requestId: string;
+        method: string;
+        url: string;
+        time: number;
+        requestHeaders?: Record<string, string>;
+        responseStatus?: number;
+        responseStatusText?: string;
+      }>;
+      if (Array.isArray(arr)) {
+        for (const item of arr) {
+          const rid = item.requestId || 'main-?' + orderList.length;
+          const entry: MainNetworkRequestEntry = {
+            requestId: rid,
+            targetType: 'main',
+            method: item.method ?? 'GET',
+            url: item.url ?? '',
+            time: typeof item.time === 'number' ? item.time : Date.now(),
+            requestHeaders: item.requestHeaders,
+            responseStatus: item.responseStatus,
+            responseStatusText: item.responseStatusText,
+          };
+          byRequestId.set(rid, entry);
+          if (!orderList.includes(rid)) orderList.push(rid);
+        }
       }
+      while (orderList.length > MAX_MAIN_NETWORK_SAVED) {
+        const oldest = orderList.shift();
+        if (oldest) byRequestId.delete(oldest);
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
-  }
-  await executeInElectron(CLEAR_BUFFER_SCRIPT, mainTarget);
+    await executeInElectron(CLEAR_BUFFER_SCRIPT, mainTarget);
+  });
+  fetchAndClearMutex = next;
+  await next;
 }
 
 /** 메인 프로세스 버퍼를 서버 저장소로 가져오고 앱 버퍼 비우기. list_network_requests에서 호출. */

@@ -67,6 +67,9 @@ const CLEAR_BUFFER_SCRIPT = `
 })();
 `;
 
+/** 콘솔/네트워크와 동일하게 서버 저장 개수 상한. 장기 실행 시 메모리 완화. */
+const MAX_IPC_EVENTS_SAVED = 500;
+
 let nextEventId = 1;
 const serverStore: IpcMonitorEntry[] = [];
 
@@ -78,33 +81,42 @@ async function ensureInstalled(
   return result && result.includes('installed') ? result : null;
 }
 
+let fetchAndClearMutex: Promise<void> = Promise.resolve();
+
 async function fetchAndClearBuffer(
   mainTarget: Awaited<ReturnType<typeof getMainProcessTarget>>
 ): Promise<void> {
   if (!mainTarget) return;
-  const raw = await executeInElectron(GET_BUFFER_SCRIPT, mainTarget);
-  try {
-    const arr = JSON.parse(raw) as Array<{
-      channel: string;
-      args: unknown[];
-      time: number;
-      direction?: string;
-    }>;
-    if (Array.isArray(arr)) {
-      for (const item of arr) {
-        serverStore.push({
-          eventId: nextEventId++,
-          channel: item.channel ?? '',
-          args: item.args ?? [],
-          time: typeof item.time === 'number' ? item.time : Date.now(),
-          direction: item.direction === 'invoke' ? 'invoke' : 'in',
-        });
+  const next = fetchAndClearMutex.then(async () => {
+    const raw = await executeInElectron(GET_BUFFER_SCRIPT, mainTarget);
+    try {
+      const arr = JSON.parse(raw) as Array<{
+        channel: string;
+        args: unknown[];
+        time: number;
+        direction?: string;
+      }>;
+      if (Array.isArray(arr)) {
+        for (const item of arr) {
+          serverStore.push({
+            eventId: nextEventId++,
+            channel: item.channel ?? '',
+            args: item.args ?? [],
+            time: typeof item.time === 'number' ? item.time : Date.now(),
+            direction: item.direction === 'invoke' ? 'invoke' : 'in',
+          });
+        }
       }
+      if (serverStore.length > MAX_IPC_EVENTS_SAVED) {
+        serverStore.splice(0, serverStore.length - MAX_IPC_EVENTS_SAVED);
+      }
+    } catch {
+      // ignore parse error
     }
-  } catch {
-    // ignore parse error
-  }
-  await executeInElectron(CLEAR_BUFFER_SCRIPT, mainTarget);
+    await executeInElectron(CLEAR_BUFFER_SCRIPT, mainTarget);
+  });
+  fetchAndClearMutex = next;
+  await next;
 }
 
 const listSchema = z.object({
