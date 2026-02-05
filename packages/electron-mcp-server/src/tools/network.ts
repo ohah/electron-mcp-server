@@ -1,6 +1,6 @@
 /**
  * MCP tools: list_network_requests, get_network_request
- * Chrome DevTools MCP와 동일 스펙: 상시 수집·저장, list는 저장소 반환.
+ * Chrome DevTools MCP 스타일 + 메인 프로세스 네트워크 통합. targetType으로 main|renderer 구분.
  * @see https://github.com/ohah/electron-mcp-server/issues/3
  * @see https://github.com/ChromeDevTools/chrome-devtools-mcp (PageCollector/NetworkCollector)
  */
@@ -9,9 +9,17 @@ import { z } from 'zod';
 import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { findElectronTarget, sendCdp } from './electron';
+import {
+  fetchMainNetworkToStore,
+  getMainNetworkRequest,
+  getMainNetworkRequestList,
+} from './network-main';
 
 export interface NetworkRequestEntry {
   requestId: string;
+  targetType: 'renderer';
+  /** 수집 시각(정렬·메인과 병합용) */
+  receivedTime: number;
   url: string;
   method: string;
   requestHeaders?: Record<string, string>;
@@ -124,6 +132,9 @@ async function startCaptureIfNeeded(): Promise<void> {
   clearCaptureState();
 
   const target = await findElectronTarget();
+  if (target.type === 'node') {
+    return;
+  }
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise<void>((resolve, reject) => {
     ws.once('open', () => resolve());
@@ -154,6 +165,8 @@ async function startCaptureIfNeeded(): Promise<void> {
         const req = params.request;
         const entry: NetworkRequestEntry = {
           requestId,
+          targetType: 'renderer',
+          receivedTime: Date.now(),
           url: req?.url ?? '',
           method: req?.method ?? 'GET',
           requestHeaders: req?.headers as Record<string, string> | undefined,
@@ -229,24 +242,75 @@ const listSchema = z.object({
     .boolean()
     .optional()
     .describe('If true, return last 3 navigations. Default false (current nav only).'),
+  targetType: z
+    .enum(['all', 'main', 'renderer'])
+    .optional()
+    .default('all')
+    .describe(
+      'Filter by process: "all" (default, merge main + renderer by time), "main", "renderer".'
+    ),
+  includeMainProcess: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      'Include main process HTTP/HTTPS requests (wrapper over http.request). Default true.'
+    ),
 });
 
 async function listNetworkRequestsHandler(args: z.infer<typeof listSchema>) {
   await startCaptureIfNeeded();
   const waitMs = args?.waitMs;
   const includePreserved = args?.includePreservedData ?? false;
+  const targetFilter = args?.targetType ?? 'all';
+  const includeMain = args?.includeMainProcess ?? true;
+
   if (typeof waitMs === 'number' && waitMs > 0) {
     await new Promise((r) => setTimeout(r, waitMs));
   }
-  const entries = getStoredRequests(includePreserved);
-  const list = entries.map((e) => ({
+
+  const rendererEntries = getStoredRequests(includePreserved);
+  let list: Array<{
+    requestId: string;
+    targetType: 'main' | 'renderer';
+    url: string;
+    method: string;
+    responseStatus?: number;
+    responseStatusText?: string;
+    hasBody?: boolean;
+    time?: number;
+  }> = rendererEntries.map((e) => ({
     requestId: e.requestId,
+    targetType: 'renderer' as const,
     url: e.url,
     method: e.method,
     responseStatus: e.responseStatus,
     responseStatusText: e.responseStatusText,
     hasBody: e.responseBody != null,
+    time: e.receivedTime,
   }));
+
+  if (includeMain && (targetFilter === 'all' || targetFilter === 'main')) {
+    await fetchMainNetworkToStore();
+    const mainList = getMainNetworkRequestList();
+    list = list.concat(
+      mainList.map((e) => ({
+        requestId: e.requestId,
+        targetType: 'main' as const,
+        url: e.url,
+        method: e.method,
+        responseStatus: e.responseStatus,
+        responseStatusText: e.responseStatusText,
+        time: e.time,
+      }))
+    );
+    list.sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+  }
+
+  if (targetFilter !== 'all') {
+    list = list.filter((e) => e.targetType === targetFilter);
+  }
+
   const text = JSON.stringify(list, null, 2);
   return { content: [{ type: 'text', text }] };
 }
@@ -254,7 +318,7 @@ async function listNetworkRequestsHandler(args: z.infer<typeof listSchema>) {
 const listTool = {
   name: 'list_network_requests' as const,
   description:
-    'List of network requests for the current page (continuously captured). Returns stored list. waitMs waits that long before returning. Use requestId in get_network_request.',
+    'List network requests for the current page (renderer) and optionally main process. Use targetType to filter main|renderer|all. Returns requestId, targetType, url, method, responseStatus, etc. Use requestId in get_network_request (response includes targetType).',
   inputSchema: listSchema,
   handler: listNetworkRequestsHandler,
 };
@@ -271,28 +335,33 @@ async function getNetworkRequestHandler(args: z.infer<typeof getSchema>) {
     };
   }
   await startCaptureIfNeeded();
-  const entry = byRequestId.get(requestId);
-  if (!entry) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text:
-            'Request not found: ' +
-            requestId +
-            '. Use a requestId from list_network_requests (capture may have started after that request).',
-        },
-      ],
-    };
+  const rendererEntry = byRequestId.get(requestId);
+  if (rendererEntry) {
+    const text = JSON.stringify(rendererEntry, null, 2);
+    return { content: [{ type: 'text', text }] };
   }
-  const text = JSON.stringify(entry, null, 2);
-  return { content: [{ type: 'text', text }] };
+  const mainEntry = getMainNetworkRequest(requestId);
+  if (mainEntry) {
+    const text = JSON.stringify(mainEntry, null, 2);
+    return { content: [{ type: 'text', text }] };
+  }
+  return {
+    content: [
+      {
+        type: 'text',
+        text:
+          'Request not found: ' +
+          requestId +
+          '. Use a requestId from list_network_requests (capture may have started after that request).',
+      },
+    ],
+  };
 }
 
 const getTool = {
   name: 'get_network_request' as const,
   description:
-    'Get details of a network request. Use requestId from list_network_requests. Returns request/response meta and body when captured.',
+    'Get details of a network request. Use requestId from list_network_requests. Returns request/response meta and body when captured. Response includes targetType (main|renderer).',
   inputSchema: getSchema,
   handler: getNetworkRequestHandler,
 };

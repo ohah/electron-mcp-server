@@ -593,7 +593,7 @@ export default function TestPanel({ toolId }: TestPanelProps) {
           <section style={sectionStyle}>
             <p>
               아래 버튼으로 HTTP 요청을 보낸 뒤 MCP <code>list_network_requests</code>로 목록을
-              확인하세요.
+              확인하세요. 메인 프로세스 요청은 targetType: main 또는 all로 포함됩니다.
             </p>
             <button
               type="button"
@@ -601,7 +601,7 @@ export default function TestPanel({ toolId }: TestPanelProps) {
               onClick={handleFetchHttpbin}
               style={buttonStyle}
             >
-              Fetch httpbin.org/get
+              Fetch httpbin.org/get (렌더러)
             </button>
             <button
               type="button"
@@ -610,6 +610,21 @@ export default function TestPanel({ toolId }: TestPanelProps) {
               style={buttonStyle}
             >
               Fetch jsonplaceholder
+            </button>
+            <button
+              type="button"
+              style={buttonStyle}
+              onClick={async () => {
+                setFetchStatus('fetching...');
+                try {
+                  const r = await window.electronAPI?.mainFetchHttpbin();
+                  setFetchStatus(r?.status != null ? `main https.get: ${r.status}` : 'done');
+                } catch (e) {
+                  setFetchStatus('error: ' + (e instanceof Error ? e.message : String(e)));
+                }
+              }}
+            >
+              메인에서 httpbin.org/get 요청
             </button>
             {fetchStatus != null && (
               <div
@@ -701,54 +716,6 @@ export default function TestPanel({ toolId }: TestPanelProps) {
             <p>
               <code>list_electron_main_ipc_events</code>로 목록을 가져온 뒤, 반환된 eventId로{' '}
               <code>get_electron_main_ipc_event</code>를 호출하세요.
-            </p>
-          </section>
-        );
-      case 'list_electron_main_network_requests':
-        return (
-          <section style={sectionStyle}>
-            <p>
-              (1) MCP <code>list_electron_main_network_requests</code>를 한 번 호출해 메인에
-              네트워크 래핑 설치 → (2) 아래 버튼으로 메인 프로세스에서 HTTP 요청 발생 → (3) 다시{' '}
-              <code>list_electron_main_network_requests</code>로 목록 확인.
-            </p>
-            <button
-              type="button"
-              style={buttonStyle}
-              onClick={async () => {
-                setFetchStatus('fetching...');
-                try {
-                  const r = await window.electronAPI?.mainFetchHttpbin();
-                  setFetchStatus(r?.status != null ? `main https.get: ${r.status}` : 'done');
-                } catch (e) {
-                  setFetchStatus('error: ' + (e instanceof Error ? e.message : String(e)));
-                }
-              }}
-            >
-              메인에서 httpbin.org/get 요청
-            </button>
-            {fetchStatus != null && (
-              <div
-                style={{
-                  ...feedbackBoxStyle,
-                  marginTop: 12,
-                  ...(fetchStatus.startsWith('error')
-                    ? { background: '#f8d7da', border: '2px solid #dc3545', color: '#842029' }
-                    : {}),
-                }}
-                role="status"
-              >
-                {fetchStatus}
-              </div>
-            )}
-          </section>
-        );
-      case 'get_electron_main_network_request':
-        return (
-          <section style={sectionStyle}>
-            <p>
-              <code>list_electron_main_network_requests</code>로 목록을 가져온 뒤, 반환된
-              requestId로 <code>get_electron_main_network_request</code>를 호출하세요.
             </p>
           </section>
         );

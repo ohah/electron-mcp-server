@@ -61,7 +61,7 @@ app.whenReady().then(() => {
     return 'ok';
   });
 
-  // 메인 프로세스에서 HTTP 요청 → list_electron_main_network_requests로 감지용
+  // 메인 프로세스에서 HTTP 요청 → list_network_requests(targetType: main)로 감지
   ipcMain.handle('main-fetch-httpbin', () => {
     return new Promise((resolve, reject) => {
       https
