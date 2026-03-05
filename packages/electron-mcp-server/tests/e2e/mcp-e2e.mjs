@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkgDir = path.resolve(__dirname, '../..');
-const mcpPath = path.join(pkgDir, 'dist', 'index.js');
+const mcpPath = path.join(pkgDir, 'dist', 'index.cjs');
 
 function send(proc, msg) {
   proc.stdin.write(JSON.stringify(msg) + '\n');
