@@ -351,8 +351,24 @@ async function getNetworkRequestHandler(args: z.infer<typeof getSchema>) {
     ];
     const headers = (entry as NetworkRequestEntry).responseHeaders;
     if (headers) {
-      const ct = headers['content-type'] || headers['Content-Type'];
-      if (ct) lines.push(`content-type: ${ct}`);
+      // 디버깅에 유용한 헤더만 표시, 나머지는 생략
+      const useful = [
+        'content-type', 'content-length', 'cache-control', 'etag',
+        'location', 'set-cookie', 'x-request-id', 'x-trace-id',
+        'access-control-allow-origin', 'access-control-allow-methods',
+        'access-control-allow-headers', 'www-authenticate',
+        'retry-after', 'x-ratelimit-remaining',
+      ];
+      const shown: string[] = [];
+      for (const key of Object.keys(headers)) {
+        if (useful.includes(key.toLowerCase())) {
+          shown.push(`  ${key}: ${headers[key]}`);
+        }
+      }
+      if (shown.length > 0) {
+        lines.push('headers:');
+        lines.push(...shown);
+      }
     }
     if ((entry as NetworkRequestEntry).responseBody != null) {
       const body = (entry as NetworkRequestEntry).responseBody!;

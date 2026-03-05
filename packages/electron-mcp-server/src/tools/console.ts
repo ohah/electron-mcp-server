@@ -167,6 +167,31 @@ function formatRemoteObject(arg: RemoteObjectLike): string {
   return arg.description ?? '[object Object]';
 }
 
+/** objectId가 있는 args를 deep resolve. WebSocket이 열려 있어야 한다. */
+async function deepResolveArgs(ws: WebSocket, args: RemoteObjectLike[]): Promise<string[]> {
+  const results: string[] = [];
+  for (const arg of args) {
+    if (arg.objectId && (arg.type === 'object' || arg.type === 'function') && arg.subtype !== 'null') {
+      try {
+        const res = await sendCdp(ws, 'Runtime.callFunctionOn', {
+          objectId: arg.objectId,
+          functionDeclaration: `function() {
+            try { return JSON.stringify(this, null, 2); }
+            catch(e) { return String(this); }
+          }`,
+          returnByValue: true,
+        }) as { result?: { value?: string } };
+        results.push(res?.result?.value ?? formatRemoteObject(arg));
+      } catch {
+        results.push(formatRemoteObject(arg));
+      }
+    } else {
+      results.push(formatRemoteObject(arg));
+    }
+  }
+  return results;
+}
+
 function attachMessageHandler(
   ws: WebSocket,
   targetType: 'main' | 'renderer',
@@ -216,20 +241,36 @@ function attachMessageHandler(
 
       if (method === 'Runtime.consoleAPICalled' && params.args) {
         const args = params.args;
-        const text = args.map(formatRemoteObject).join(' ');
         const level = params.type ?? 'log';
         const frame = params.stackTrace?.callFrames?.[0];
-        const entry = makeEntry(
-          targetType,
-          target,
-          'console-api',
-          level,
-          text,
-          frame?.url,
-          frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
-          frame?.columnNumber
-        );
-        addToCurrentBucket(entry);
+        // deep resolve를 비동기로 수행하되, 실패 시 preview fallback
+        deepResolveArgs(ws, args).then((parts) => {
+          const text = parts.join(' ');
+          const entry = makeEntry(
+            targetType,
+            target,
+            'console-api',
+            level,
+            text,
+            frame?.url,
+            frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
+            frame?.columnNumber
+          );
+          addToCurrentBucket(entry);
+        }).catch(() => {
+          const text = args.map(formatRemoteObject).join(' ');
+          const entry = makeEntry(
+            targetType,
+            target,
+            'console-api',
+            level,
+            text,
+            frame?.url,
+            frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
+            frame?.columnNumber
+          );
+          addToCurrentBucket(entry);
+        });
       } else if (method === 'Console.messageAdded' && params.message) {
         const m = params.message;
         // Skip console-api messages — Runtime.consoleAPICalled handles them with richer formatting
