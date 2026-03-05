@@ -190,8 +190,8 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     expect(res.error).toBeUndefined();
     const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
     const text = content.find((c) => c.type === 'text')?.text ?? '';
-    expect(text).toContain('automationReady');
-    expect(text).toMatch(/true/);
+    expect(text).toContain('automation');
+    expect(text).toContain('ready');
   });
 
   test('tools/call list_console_messages', async () => {
@@ -218,7 +218,7 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     await new Promise((r) => setTimeout(r, 500));
     const res = await callMcp('tools/call', {
       name: 'click',
-      arguments: { selector: '[data-testid="demo-click-button"]' },
+      arguments: { ref: '[data-testid="demo-click-button"]' },
     });
     expect(res.error).toBeUndefined();
     const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
@@ -395,7 +395,8 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
       },
     });
     // 요청 캡처 대기 후 목록 조회(재시도 최대 3회)
-    let list: Array<{ requestId: string; url: string; method: string }> = [];
+    // compact 출력: "# N requests\n- [renderer] GET url status id=xxx"
+    let listText = '';
     for (let attempt = 0; attempt < 3; attempt++) {
       await new Promise((r) => setTimeout(r, attempt === 0 ? 1200 : 600));
       const res = await callMcp('tools/call', {
@@ -405,24 +406,26 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
       expect(res.error).toBeUndefined();
       const content =
         (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
-      const text = content.find((c) => c.type === 'text')?.text ?? '';
-      list = JSON.parse(text) as Array<{ requestId: string; url: string; method: string }>;
-      if (Array.isArray(list) && list.some((r) => r.url.includes('httpbin'))) break;
+      listText = content.find((c) => c.type === 'text')?.text ?? '';
+      if (listText.includes('httpbin')) break;
     }
-    expect(Array.isArray(list)).toBe(true);
-    expect(list.length).toBeGreaterThan(0);
-    const httpbin = list.find((r) => r.url.includes('httpbin'));
-    expect(httpbin).toBeDefined();
+    expect(listText).toContain('requests');
+    expect(listText).toContain('httpbin');
+    // compact 형식에서 requestId 추출: "... id=XXX"
+    const httpbinLine = listText.split('\n').find((l) => l.includes('httpbin'));
+    expect(httpbinLine).toBeDefined();
+    const idMatch = httpbinLine!.match(/id=(\S+)/);
+    expect(idMatch).toBeDefined();
+    const requestId = idMatch![1];
     const getRes = await callMcp('tools/call', {
       name: 'get_network_request',
-      arguments: { requestId: httpbin!.requestId },
+      arguments: { requestId },
     });
     expect(getRes.error).toBeUndefined();
     const getContent =
       (getRes.result as { content?: { type: string; text?: string }[] })?.content ?? [];
     const getText = getContent.find((c) => c.type === 'text')?.text ?? '';
-    const detail = JSON.parse(getText) as { requestId: string; url: string };
-    expect(detail.requestId).toBe(httpbin!.requestId);
-    expect(detail.url).toContain('httpbin');
+    // compact 출력: "GET url\nstatus: 200\n..."
+    expect(getText).toContain('httpbin');
   });
 });
