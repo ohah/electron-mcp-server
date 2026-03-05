@@ -10,4 +10,6 @@ export default defineConfig({
   banner: '#!/usr/bin/env node\n',
   // MCP SDK·ws 모두 번들에 포함해 npx 설치 시 의존성 해석 오류 방지(런타임 의존성 없음)
   external: ['playwright'],
+  // Zod 내부 참조(util3 등)가 깨지지 않도록 식별자 minify 비활성화
+  minifyIdentifiers: false,
 });
