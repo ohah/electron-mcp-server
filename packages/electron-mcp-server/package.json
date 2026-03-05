@@ -1,6 +1,6 @@
 {
   "name": "@ohah/electron-mcp-server",
-  "version": "0.2.0-rc.2",
+  "version": "0.1.0-rc.5",
   "description": "MCP server for Electron app automation via CDP. Agent-browser style compact refs. Use with any Electron app running --remote-debugging-port=9222.",
   "keywords": [
     "automation",
