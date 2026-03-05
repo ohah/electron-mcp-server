@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const target = path.join(__dirname, '..', 'dist', 'index.js');
+const target = path.join(__dirname, '..', 'dist', 'index.cjs');
 
 if (!fs.existsSync(target)) {
   console.error(`[chmod-dist] Expected build output not found: ${target}`);
