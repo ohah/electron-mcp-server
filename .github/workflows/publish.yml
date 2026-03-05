@@ -37,7 +37,7 @@ jobs:
 
       - name: Test built package
         working-directory: packages/electron-mcp-server
-        run: bun dist/index.js --help || true
+        run: bun dist/index.cjs --help || true
 
       - name: Publish to npm
         working-directory: packages/electron-mcp-server
