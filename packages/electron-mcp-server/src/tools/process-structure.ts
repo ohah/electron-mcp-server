@@ -13,6 +13,7 @@ const schema = z.object({
   includeDevTools: z.boolean().optional().describe('Include DevTools windows in renderers'),
 });
 
+/** getElectronProcessStructure() 리턴의 formatProcessTree용 서브셋. */
 interface ProcessStructureResult {
   main: {
     id: string;
@@ -29,17 +30,19 @@ interface ProcessStructureResult {
     type: string;
   }>;
   capabilities: { main: string[]; renderers: string[] };
-  apps: Array<{ port: number; targetCount: number }>;
+  apps?: Array<{ port: number; main: unknown; renderers: unknown[]; message: string }>;
 }
 
 function formatProcessTree(result: ProcessStructureResult): string {
   resetProcessRefs();
   const lines: string[] = [];
 
-  if (result.apps.length > 1) {
-    lines.push(`# ${result.apps.length} apps connected`);
-    for (const app of result.apps) {
-      lines.push(`  port=${app.port} targets=${app.targetCount}`);
+  const apps = result.apps ?? [];
+  if (apps.length > 1) {
+    lines.push(`# ${apps.length} apps connected`);
+    for (const app of apps) {
+      const count = (app.main ? 1 : 0) + (Array.isArray(app.renderers) ? app.renderers.length : 0);
+      lines.push(`  port=${app.port} targets=${count}`);
     }
     lines.push('');
   }

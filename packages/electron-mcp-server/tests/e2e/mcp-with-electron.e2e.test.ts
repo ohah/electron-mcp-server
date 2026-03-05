@@ -17,7 +17,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const pkgDir = join(__dirname, '../..');
 const workspaceRoot = join(pkgDir, '../..');
 const demoDir = join(workspaceRoot, 'examples', 'electron-mcp-demo');
-const mcpPath = join(pkgDir, 'dist', 'index.js');
+const mcpPath = join(pkgDir, 'dist', 'index.cjs');
 
 /** E2E 전용: CDP(remote-debugging) 9229, Node inspect 9230 분리. MCP 서버는 9229 등 스캔. */
 const DEBUG_PORT = 9229;
