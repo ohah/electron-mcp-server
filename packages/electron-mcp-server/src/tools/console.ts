@@ -171,16 +171,20 @@ function formatRemoteObject(arg: RemoteObjectLike): string {
 async function deepResolveArgs(ws: WebSocket, args: RemoteObjectLike[]): Promise<string[]> {
   const results: string[] = [];
   for (const arg of args) {
-    if (arg.objectId && (arg.type === 'object' || arg.type === 'function') && arg.subtype !== 'null') {
+    if (
+      arg.objectId &&
+      (arg.type === 'object' || arg.type === 'function') &&
+      arg.subtype !== 'null'
+    ) {
       try {
-        const res = await sendCdp(ws, 'Runtime.callFunctionOn', {
+        const res = (await sendCdp(ws, 'Runtime.callFunctionOn', {
           objectId: arg.objectId,
           functionDeclaration: `function() {
             try { return JSON.stringify(this, null, 2); }
             catch(e) { return String(this); }
           }`,
           returnByValue: true,
-        }) as { result?: { value?: string } };
+        })) as { result?: { value?: string } };
         results.push(res?.result?.value ?? formatRemoteObject(arg));
       } catch {
         results.push(formatRemoteObject(arg));
@@ -244,33 +248,35 @@ function attachMessageHandler(
         const level = params.type ?? 'log';
         const frame = params.stackTrace?.callFrames?.[0];
         // deep resolve를 비동기로 수행하되, 실패 시 preview fallback
-        deepResolveArgs(ws, args).then((parts) => {
-          const text = parts.join(' ');
-          const entry = makeEntry(
-            targetType,
-            target,
-            'console-api',
-            level,
-            text,
-            frame?.url,
-            frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
-            frame?.columnNumber
-          );
-          addToCurrentBucket(entry);
-        }).catch(() => {
-          const text = args.map(formatRemoteObject).join(' ');
-          const entry = makeEntry(
-            targetType,
-            target,
-            'console-api',
-            level,
-            text,
-            frame?.url,
-            frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
-            frame?.columnNumber
-          );
-          addToCurrentBucket(entry);
-        });
+        deepResolveArgs(ws, args)
+          .then((parts) => {
+            const text = parts.join(' ');
+            const entry = makeEntry(
+              targetType,
+              target,
+              'console-api',
+              level,
+              text,
+              frame?.url,
+              frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
+              frame?.columnNumber
+            );
+            addToCurrentBucket(entry);
+          })
+          .catch(() => {
+            const text = args.map(formatRemoteObject).join(' ');
+            const entry = makeEntry(
+              targetType,
+              target,
+              'console-api',
+              level,
+              text,
+              frame?.url,
+              frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
+              frame?.columnNumber
+            );
+            addToCurrentBucket(entry);
+          });
       } else if (method === 'Console.messageAdded' && params.message) {
         const m = params.message;
         // Skip console-api messages — Runtime.consoleAPICalled handles them with richer formatting
@@ -465,11 +471,11 @@ const getSchema = z.object({
 });
 
 function formatMessageCompact(m: ConsoleMessageEntry): string {
-  const lines: string[] = [
-    `[${m.targetType}] [${m.level}] ${m.text}`,
-    `  source: ${m.source}`,
-  ];
-  if (m.url) lines.push(`  url: ${m.url}${m.line != null ? `:${m.line}` : ''}${m.column != null ? `:${m.column}` : ''}`);
+  const lines: string[] = [`[${m.targetType}] [${m.level}] ${m.text}`, `  source: ${m.source}`];
+  if (m.url)
+    lines.push(
+      `  url: ${m.url}${m.line != null ? `:${m.line}` : ''}${m.column != null ? `:${m.column}` : ''}`
+    );
   return lines.join('\n');
 }
 
@@ -527,8 +533,7 @@ export function registerConsoleTools(server: McpServer): void {
   s.registerTool(
     'get_console_message',
     {
-      description:
-        'Get console message detail by msgid from list_console_messages.',
+      description: 'Get console message detail by msgid from list_console_messages.',
       inputSchema: getSchema,
     },
     async (args: unknown) => {

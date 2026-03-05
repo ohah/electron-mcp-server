@@ -115,7 +115,9 @@ export function parseRef(input: string): string | null {
 /**
  * Resolve ref to its data from any namespace.
  */
-export function resolveRef(ref: string): { type: 'element' | 'process' | 'ipc'; data: RefData } | null {
+export function resolveRef(
+  ref: string
+): { type: 'element' | 'process' | 'ipc'; data: RefData } | null {
   const elementData = namespaces.element.refs.get(ref);
   if (elementData) return { type: 'element', data: elementData };
   const processData = namespaces.process.refs.get(ref);

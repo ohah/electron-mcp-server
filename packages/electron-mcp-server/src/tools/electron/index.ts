@@ -221,16 +221,22 @@ export async function findRendererTarget(): Promise<DevToolsTarget | null> {
   const apps = await scanForElectronApps();
   if (apps.length === 0) return null;
 
-  const ordered = selectedPort != null
-    ? [apps.find(a => a.port === selectedPort), ...apps.filter(a => a.port !== selectedPort)].filter(Boolean) as ElectronAppInfo[]
-    : apps;
+  const ordered =
+    selectedPort != null
+      ? ([
+          apps.find((a) => a.port === selectedPort),
+          ...apps.filter((a) => a.port !== selectedPort),
+        ].filter(Boolean) as ElectronAppInfo[])
+      : apps;
 
   for (const app of ordered) {
     const withWs = app.targets.filter(
       (t): t is typeof t & { webSocketDebuggerUrl: string } =>
         !!t.webSocketDebuggerUrl && t.type === 'page' && !(t.title || '').includes('DevTools')
     );
-    const t = selectedPageId ? (withWs.find((x) => x.id === selectedPageId) ?? withWs[0]) : withWs[0];
+    const t = selectedPageId
+      ? (withWs.find((x) => x.id === selectedPageId) ?? withWs[0])
+      : withWs[0];
     if (t) {
       return {
         id: t.id,
@@ -409,9 +415,13 @@ export async function getMainProcessTarget(): Promise<DevToolsTarget | null> {
   if (apps.length === 0) return null;
 
   // 선택된 포트 우선, 없으면 모든 포트에서 main(node) 검색
-  const ordered = selectedPort != null
-    ? [apps.find(a => a.port === selectedPort), ...apps.filter(a => a.port !== selectedPort)].filter(Boolean) as ElectronAppInfo[]
-    : apps;
+  const ordered =
+    selectedPort != null
+      ? ([
+          apps.find((a) => a.port === selectedPort),
+          ...apps.filter((a) => a.port !== selectedPort),
+        ].filter(Boolean) as ElectronAppInfo[])
+      : apps;
 
   for (const app of ordered) {
     const t = app.targets.find(

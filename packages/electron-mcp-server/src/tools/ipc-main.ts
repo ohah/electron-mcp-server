@@ -6,7 +6,12 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { executeInElectron, getMainProcessTarget } from './electron';
-import { resetIpcRefs, addIpcRef, parseRef as parseRefFn, getIpcRef as getIpcRefFn } from './ref-store';
+import {
+  resetIpcRefs,
+  addIpcRef,
+  parseRef as parseRefFn,
+  getIpcRef as getIpcRefFn,
+} from './ref-store';
 
 export interface IpcMonitorEntry {
   eventId: number;
@@ -90,7 +95,10 @@ async function fetchAndClearBuffer(
     const raw = await executeInElectron(GET_BUFFER_SCRIPT, mainTarget);
     try {
       const arr = JSON.parse(raw) as Array<{
-        channel: string; args: unknown[]; time: number; direction?: string;
+        channel: string;
+        args: unknown[];
+        time: number;
+        direction?: string;
       }>;
       if (Array.isArray(arr)) {
         for (const item of arr) {
@@ -165,14 +173,22 @@ export function registerIpcMainTools(server: McpServer): void {
   s.registerTool(
     'list_electron_main_ipc_events',
     {
-      description: 'List IPC events from Electron main process. Each event gets [ref=ch1]. Use @ref in get_electron_main_ipc_event.',
+      description:
+        'List IPC events from Electron main process. Each event gets [ref=ch1]. Use @ref in get_electron_main_ipc_event.',
       inputSchema: listSchema,
     },
     async (args: unknown) => {
       const params = listSchema.parse(args ?? {});
       const mainTarget = await getMainProcessTarget();
       if (!mainTarget) {
-        return { content: [{ type: 'text' as const, text: 'No main process. Run Electron with --remote-debugging-port.' }] };
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'No main process. Run Electron with --remote-debugging-port.',
+            },
+          ],
+        };
       }
       const installResult = await ensureInstalled(mainTarget);
       if (!installResult) {
@@ -181,9 +197,10 @@ export function registerIpcMainTools(server: McpServer): void {
       await fetchAndClearBuffer(mainTarget);
       const pageIdx = params.pageIdx ?? 0;
       const pageSize = params.pageSize;
-      const slice = pageSize != null && pageSize > 0
-        ? serverStore.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
-        : serverStore;
+      const slice =
+        pageSize != null && pageSize > 0
+          ? serverStore.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
+          : serverStore;
       return { content: [{ type: 'text' as const, text: formatIpcList(slice) }] };
     }
   );
@@ -212,7 +229,14 @@ export function registerIpcMainTools(server: McpServer): void {
       }
 
       if (!entry) {
-        return { content: [{ type: 'text' as const, text: 'IPC event not found. Use @ref from list_electron_main_ipc_events.' }] };
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'IPC event not found. Use @ref from list_electron_main_ipc_events.',
+            },
+          ],
+        };
       }
       return { content: [{ type: 'text' as const, text: formatIpcDetail(entry) }] };
     }

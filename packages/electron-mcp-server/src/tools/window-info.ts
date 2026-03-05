@@ -48,7 +48,7 @@ export function registerGetElectronWindowInfo(server: McpServer): void {
     },
     async (args: unknown) => {
       const params = schema.parse(args ?? {});
-      const result = await getElectronWindowInfo(!!params.includeChildren) as WindowInfoResult;
+      const result = (await getElectronWindowInfo(!!params.includeChildren)) as WindowInfoResult;
       return { content: [{ type: 'text' as const, text: formatWindowInfo(result) }] };
     }
   );
