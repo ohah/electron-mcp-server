@@ -311,14 +311,21 @@ async function listNetworkRequestsHandler(args: z.infer<typeof listSchema>) {
     list = list.filter((e) => e.targetType === targetFilter);
   }
 
-  const text = JSON.stringify(list, null, 2);
-  return { content: [{ type: 'text', text }] };
+  if (list.length === 0) {
+    return { content: [{ type: 'text', text: '(no network requests)' }] };
+  }
+  const lines: string[] = [`# ${list.length} requests`];
+  for (const e of list) {
+    const status = e.responseStatus != null ? ` ${e.responseStatus}` : '';
+    lines.push(`- [${e.targetType}] ${e.method} ${e.url}${status} id=${e.requestId}`);
+  }
+  return { content: [{ type: 'text', text: lines.join('\n') }] };
 }
 
 const listTool = {
   name: 'list_network_requests' as const,
   description:
-    'List network requests for the current page (renderer) and optionally main process. Use targetType to filter main|renderer|all. Returns requestId, targetType, url, method, responseStatus, etc. Use requestId in get_network_request (response includes targetType).',
+    'List network requests. One line per request. Use requestId in get_network_request. Filter by targetType (main|renderer|all).',
   inputSchema: listSchema,
   handler: listNetworkRequestsHandler,
 };
@@ -336,14 +343,23 @@ async function getNetworkRequestHandler(args: z.infer<typeof getSchema>) {
   }
   await startCaptureIfNeeded();
   const rendererEntry = byRequestId.get(requestId);
-  if (rendererEntry) {
-    const text = JSON.stringify(rendererEntry, null, 2);
-    return { content: [{ type: 'text', text }] };
-  }
-  const mainEntry = getMainNetworkRequest(requestId);
-  if (mainEntry) {
-    const text = JSON.stringify(mainEntry, null, 2);
-    return { content: [{ type: 'text', text }] };
+  const entry = rendererEntry ?? getMainNetworkRequest(requestId);
+  if (entry) {
+    const lines: string[] = [
+      `${entry.method} ${entry.url}`,
+      `status: ${(entry as NetworkRequestEntry).responseStatus ?? '(pending)'}`,
+    ];
+    const headers = (entry as NetworkRequestEntry).responseHeaders;
+    if (headers) {
+      const ct = headers['content-type'] || headers['Content-Type'];
+      if (ct) lines.push(`content-type: ${ct}`);
+    }
+    if ((entry as NetworkRequestEntry).responseBody != null) {
+      const body = (entry as NetworkRequestEntry).responseBody!;
+      lines.push(`body (${body.length} chars):`);
+      lines.push(body.length > 2000 ? body.slice(0, 2000) + '...(truncated)' : body);
+    }
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
   }
   return {
     content: [
@@ -361,7 +377,7 @@ async function getNetworkRequestHandler(args: z.infer<typeof getSchema>) {
 const getTool = {
   name: 'get_network_request' as const,
   description:
-    'Get details of a network request. Use requestId from list_network_requests. Returns request/response meta and body when captured. Response includes targetType (main|renderer).',
+    'Get network request detail by requestId. Shows URL, status, headers, body.',
   inputSchema: getSchema,
   handler: getNetworkRequestHandler,
 };

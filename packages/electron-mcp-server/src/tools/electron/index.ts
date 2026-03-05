@@ -216,23 +216,32 @@ export function findMainTarget(
   return withWs[0] ?? targets.find((t) => t.webSocketDebuggerUrl) ?? null;
 }
 
-/** 렌더러(page) 타겟만 반환. 없으면 null. 콘솔 수집 시 메인만 있을 때 Page.enable 방지용. */
+/** 렌더러(page) 타겟만 반환. 선택된 포트에 없으면 다른 포트에서도 검색. 없으면 null. */
 export async function findRendererTarget(): Promise<DevToolsTarget | null> {
-  const app = await getCurrentApp();
-  if (!app) return null;
-  const withWs = app.targets.filter(
-    (t): t is typeof t & { webSocketDebuggerUrl: string } =>
-      !!t.webSocketDebuggerUrl && t.type === 'page' && !(t.title || '').includes('DevTools')
-  );
-  const t = selectedPageId ? (withWs.find((x) => x.id === selectedPageId) ?? withWs[0]) : withWs[0];
-  if (!t) return null;
-  return {
-    id: t.id,
-    title: t.title,
-    url: t.url,
-    webSocketDebuggerUrl: t.webSocketDebuggerUrl,
-    type: t.type,
-  };
+  const apps = await scanForElectronApps();
+  if (apps.length === 0) return null;
+
+  const ordered = selectedPort != null
+    ? [apps.find(a => a.port === selectedPort), ...apps.filter(a => a.port !== selectedPort)].filter(Boolean) as ElectronAppInfo[]
+    : apps;
+
+  for (const app of ordered) {
+    const withWs = app.targets.filter(
+      (t): t is typeof t & { webSocketDebuggerUrl: string } =>
+        !!t.webSocketDebuggerUrl && t.type === 'page' && !(t.title || '').includes('DevTools')
+    );
+    const t = selectedPageId ? (withWs.find((x) => x.id === selectedPageId) ?? withWs[0]) : withWs[0];
+    if (t) {
+      return {
+        id: t.id,
+        title: t.title,
+        url: t.url,
+        webSocketDebuggerUrl: t.webSocketDebuggerUrl,
+        type: t.type,
+      };
+    }
+  }
+  return null;
 }
 
 export async function getElectronWindowInfo(
@@ -394,22 +403,32 @@ export function setSelectedPageId(pageId: string | null): void {
   selectedPageId = pageId;
 }
 
-/** 메인 프로세스(node) 타깃 반환. 없으면 null. 콘솔 수집 등에서 사용. */
+/** 메인 프로세스(node) 타깃 반환. 선택된 포트에 없으면 다른 포트에서도 검색. 없으면 null. */
 export async function getMainProcessTarget(): Promise<DevToolsTarget | null> {
-  const app = await getCurrentApp();
-  if (!app) return null;
-  const t = app.targets.find(
-    (x): x is typeof x & { webSocketDebuggerUrl: string } =>
-      !!x.webSocketDebuggerUrl && x.type === 'node'
-  );
-  if (!t) return null;
-  return {
-    id: t.id,
-    title: t.title,
-    url: t.url,
-    webSocketDebuggerUrl: t.webSocketDebuggerUrl,
-    type: t.type,
-  };
+  const apps = await scanForElectronApps();
+  if (apps.length === 0) return null;
+
+  // 선택된 포트 우선, 없으면 모든 포트에서 main(node) 검색
+  const ordered = selectedPort != null
+    ? [apps.find(a => a.port === selectedPort), ...apps.filter(a => a.port !== selectedPort)].filter(Boolean) as ElectronAppInfo[]
+    : apps;
+
+  for (const app of ordered) {
+    const t = app.targets.find(
+      (x): x is typeof x & { webSocketDebuggerUrl: string } =>
+        !!x.webSocketDebuggerUrl && x.type === 'node'
+    );
+    if (t) {
+      return {
+        id: t.id,
+        title: t.title,
+        url: t.url,
+        webSocketDebuggerUrl: t.webSocketDebuggerUrl,
+        type: t.type,
+      };
+    }
+  }
+  return null;
 }
 
 /** pageId에 해당하는 CDP 타겟 반환. 없으면 null. */
@@ -434,6 +453,15 @@ export async function getTargetByPageId(pageId: string): Promise<DevToolsTarget 
 }
 
 export async function findElectronTarget(): Promise<DevToolsTarget> {
+  if (selectedPageId) {
+    const selected = await getTargetByPageId(selectedPageId);
+    if (selected) return selected;
+    selectedPageId = null;
+  }
+  // 선택된 포트 우선, 없으면 모든 포트에서 page 타겟 검색
+  const renderer = await findRendererTarget();
+  if (renderer) return renderer;
+
   const app = await getCurrentApp();
   if (!app) {
     const hint = getLastScanError() ? ` (${getLastScanError()})` : '';
@@ -441,11 +469,6 @@ export async function findElectronTarget(): Promise<DevToolsTarget> {
       'No Electron app with remote debugging. Start with: electron . --remote-debugging-port=9222' +
         hint
     );
-  }
-  if (selectedPageId) {
-    const selected = await getTargetByPageId(selectedPageId);
-    if (selected) return selected;
-    selectedPageId = null;
   }
   const main = findMainTarget(app.targets);
   if (!main?.webSocketDebuggerUrl) {

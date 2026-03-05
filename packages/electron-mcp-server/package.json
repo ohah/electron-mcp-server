@@ -1,7 +1,7 @@
 {
   "name": "@ohah/electron-mcp-server",
-  "version": "0.1.0-rc.4",
-  "description": "MCP server (Node bin) for Electron app automation via CDP. Use with any Electron app running --remote-debugging-port=9222.",
+  "version": "0.2.0-rc.1",
+  "description": "MCP server for Electron app automation via CDP. Agent-browser style compact refs. Use with any Electron app running --remote-debugging-port=9222.",
   "keywords": [
     "automation",
     "cdp",
@@ -21,40 +21,40 @@
     "directory": "packages/electron-mcp-server"
   },
   "bin": {
-    "electron-mcp-server": "dist/index.js"
+    "electron-mcp-server": "dist/index.cjs"
   },
   "files": [
     "dist"
   ],
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "bunup && bun scripts/chmod-dist.mjs",
+    "build": "tsdown && bun scripts/chmod-dist.mjs",
     "prepublishOnly": "bun run build",
-    "mcp:run": "bun dist/index.js",
-    "mcp": "bun run build && bun dist/index.js",
+    "mcp:run": "bun dist/index.cjs",
+    "mcp": "bun run build && bun dist/index.cjs",
     "test": "bun test",
-    "test:e2e": "bunup && bun test tests/e2e",
+    "test:e2e": "bun run build && bun test tests/e2e",
     "test:e2e:mcp": "bun test tests/e2e/mcp-with-electron.e2e.test.ts",
     "test:e2e:electron": "bun test tests/e2e/electron-playwright.e2e.test.ts",
-    "test:e2e:node": "bunup && bun tests/e2e/mcp-e2e.mjs"
+    "test:e2e:node": "bun run build && bun tests/e2e/mcp-e2e.mjs"
   },
   "dependencies": {
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.25.0",
-    "@types/node": "^20.10.0",
+    "@types/node": "^22.0.0",
     "@types/ws": "^8.5.0",
-    "bunup": "^0.16.22",
-    "playwright": "^1.49.0",
+    "tsdown": "^0.21.0",
+    "playwright": "^1.50.0",
     "typescript": "^5.9.3",
     "ws": "^8.18.0"
   },
   "engines": {
     "bun": ">=1.0.0",
-    "node": ">=24"
+    "node": ">=22"
   }
 }

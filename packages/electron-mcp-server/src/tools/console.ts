@@ -423,20 +423,13 @@ const getSchema = z.object({
   msgid: z.number().describe('The msgid of a console message from the listed console messages.'),
 });
 
-function formatMessageEntry(m: ConsoleMessageEntry): object {
-  return {
-    msgid: m.msgid,
-    targetType: m.targetType,
-    targetId: m.targetId,
-    targetTitle: m.targetTitle,
-    timestamp: m.timestamp,
-    level: m.level,
-    text: m.text,
-    source: m.source,
-    url: m.url,
-    line: m.line,
-    column: m.column,
-  };
+function formatMessageCompact(m: ConsoleMessageEntry): string {
+  const lines: string[] = [
+    `[${m.targetType}] [${m.level}] ${m.text}`,
+    `  source: ${m.source}`,
+  ];
+  if (m.url) lines.push(`  url: ${m.url}${m.line != null ? `:${m.line}` : ''}${m.column != null ? `:${m.column}` : ''}`);
+  return lines.join('\n');
 }
 
 /** Chrome DevTools MCP 스타일 한 줄 요약. list 응답용. targetType으로 메인/렌더러 구분. */
@@ -456,7 +449,7 @@ export function registerConsoleTools(server: McpServer): void {
     'list_console_messages',
     {
       description:
-        'List console messages for the currently selected page (and main process when includeMainProcess is true). Use targetType to filter by main|renderer|all. One line per message: msgid=N [main|renderer] [level] text. Use msgid in get_console_message for details (response includes targetType). Chrome DevTools MCP style.',
+        'List console messages. One line per message: msgid=N [main|renderer] [level] text. Use msgid in get_console_message. Filter by targetType (main|renderer|all).',
       inputSchema: listSchema,
     },
     async (args: unknown) => {
@@ -494,7 +487,7 @@ export function registerConsoleTools(server: McpServer): void {
     'get_console_message',
     {
       description:
-        'Gets a console message by its ID. You can get all messages by calling list_console_messages. Response includes targetType (main|renderer), targetId, targetTitle.',
+        'Get console message detail by msgid from list_console_messages.',
       inputSchema: getSchema,
     },
     async (args: unknown) => {
@@ -512,8 +505,7 @@ export function registerConsoleTools(server: McpServer): void {
           ],
         };
       }
-      const text = JSON.stringify(formatMessageEntry(entry), null, 2);
-      return { content: [{ type: 'text' as const, text }] };
+      return { content: [{ type: 'text' as const, text: formatMessageCompact(entry) }] };
     }
   );
 }

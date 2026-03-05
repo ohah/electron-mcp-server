@@ -1,12 +1,12 @@
 /**
  * MCP tools: list_electron_main_ipc_events, get_electron_main_ipc_event
- * IPC 모니터: 메인 프로세스에서 ipcMain 래핑, 이벤트를 앱 버퍼에 push → list 호출 시 서버로 가져와 저장 후 앱 버퍼 비우기.
- * @see packages/electron-mcp-server/docs/electron-main-process.md
+ * Compact text + [ref=ch1] 기반 출력.
  */
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { executeInElectron, getMainProcessTarget } from './electron';
+import { resetIpcRefs, addIpcRef, parseRef as parseRefFn, getIpcRef as getIpcRefFn } from './ref-store';
 
 export interface IpcMonitorEntry {
   eventId: number;
@@ -67,7 +67,6 @@ const CLEAR_BUFFER_SCRIPT = `
 })();
 `;
 
-/** 콘솔/네트워크와 동일하게 서버 저장 개수 상한. 장기 실행 시 메모리 완화. */
 const MAX_IPC_EVENTS_SAVED = 500;
 
 let nextEventId = 1;
@@ -91,10 +90,7 @@ async function fetchAndClearBuffer(
     const raw = await executeInElectron(GET_BUFFER_SCRIPT, mainTarget);
     try {
       const arr = JSON.parse(raw) as Array<{
-        channel: string;
-        args: unknown[];
-        time: number;
-        direction?: string;
+        channel: string; args: unknown[]; time: number; direction?: string;
       }>;
       if (Array.isArray(arr)) {
         for (const item of arr) {
@@ -119,81 +115,43 @@ async function fetchAndClearBuffer(
   await next;
 }
 
+function formatIpcList(events: IpcMonitorEntry[]): string {
+  resetIpcRefs();
+  if (events.length === 0) return '(no IPC events)';
+
+  const lines: string[] = [`# ${events.length} IPC events`];
+  for (const e of events) {
+    const ref = addIpcRef({ eventId: e.eventId, channel: e.channel, direction: e.direction });
+    const dir = e.direction === 'invoke' ? 'invoke' : 'on';
+    const argCount = e.args.length;
+    lines.push(`- ${dir} [ref=${ref}] "${e.channel}" args=${argCount}`);
+  }
+  return lines.join('\n');
+}
+
+function formatIpcDetail(entry: IpcMonitorEntry): string {
+  const lines: string[] = [
+    `channel: "${entry.channel}"`,
+    `direction: ${entry.direction ?? 'in'}`,
+    `time: ${new Date(entry.time).toISOString()}`,
+    `args:`,
+  ];
+  for (let i = 0; i < entry.args.length; i++) {
+    const val = typeof entry.args[i] === 'string' ? entry.args[i] : JSON.stringify(entry.args[i]);
+    lines.push(`  [${i}] ${val}`);
+  }
+  return lines.join('\n');
+}
+
 const listSchema = z.object({
-  pageIdx: z.number().optional().describe('Page number (0-based). Omit for first page.'),
-  pageSize: z.number().optional().describe('Max events to return. Omit for all.'),
+  pageIdx: z.number().optional().describe('Page number (0-based)'),
+  pageSize: z.number().optional().describe('Max events to return'),
 });
 
 const getSchema = z.object({
-  eventId: z.number().describe('Event ID from list_electron_main_ipc_events.'),
+  ref: z.string().optional().describe('IPC event ref (@ch1) from list_electron_main_ipc_events'),
+  eventId: z.number().optional().describe('Event ID (legacy)'),
 });
-
-async function listIpcEventsHandler(args: unknown) {
-  const params = listSchema.parse(args ?? {});
-  const mainTarget = await getMainProcessTarget();
-  if (!mainTarget) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            { error: 'No main process target. Run the Electron app with --remote-debugging-port.' },
-            null,
-            2
-          ),
-        },
-      ],
-    };
-  }
-  const installResult = await ensureInstalled(mainTarget);
-  if (!installResult) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            { error: 'Failed to install IPC monitor in main process.' },
-            null,
-            2
-          ),
-        },
-      ],
-    };
-  }
-  await fetchAndClearBuffer(mainTarget);
-  const pageIdx = params.pageIdx ?? 0;
-  const pageSize = params.pageSize;
-  const slice =
-    pageSize != null && pageSize > 0
-      ? serverStore.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
-      : serverStore;
-  const list = slice.map((e) => ({
-    eventId: e.eventId,
-    channel: e.channel,
-    time: e.time,
-    direction: e.direction,
-    argsPreview: e.args.length,
-  }));
-  const text = JSON.stringify(list, null, 2);
-  return { content: [{ type: 'text' as const, text }] };
-}
-
-async function getIpcEventHandler(args: unknown) {
-  const params = getSchema.parse(args);
-  const entry = serverStore.find((e) => e.eventId === params.eventId);
-  if (!entry) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `IPC event not found: eventId=${params.eventId}. Use eventId from list_electron_main_ipc_events.`,
-        },
-      ],
-    };
-  }
-  const text = JSON.stringify(entry, null, 2);
-  return { content: [{ type: 'text' as const, text }] };
-}
 
 export function registerIpcMainTools(server: McpServer): void {
   const s = server as {
@@ -207,19 +165,56 @@ export function registerIpcMainTools(server: McpServer): void {
   s.registerTool(
     'list_electron_main_ipc_events',
     {
-      description:
-        'List IPC events received by the Electron main process. Installs a minimal ipcMain wrapper if needed, then fetches app buffer into server storage and clears the app buffer. Call repeatedly to see new events.',
+      description: 'List IPC events from Electron main process. Each event gets [ref=ch1]. Use @ref in get_electron_main_ipc_event.',
       inputSchema: listSchema,
     },
-    listIpcEventsHandler
+    async (args: unknown) => {
+      const params = listSchema.parse(args ?? {});
+      const mainTarget = await getMainProcessTarget();
+      if (!mainTarget) {
+        return { content: [{ type: 'text' as const, text: 'No main process. Run Electron with --remote-debugging-port.' }] };
+      }
+      const installResult = await ensureInstalled(mainTarget);
+      if (!installResult) {
+        return { content: [{ type: 'text' as const, text: 'Failed to install IPC monitor.' }] };
+      }
+      await fetchAndClearBuffer(mainTarget);
+      const pageIdx = params.pageIdx ?? 0;
+      const pageSize = params.pageSize;
+      const slice = pageSize != null && pageSize > 0
+        ? serverStore.slice(pageIdx * pageSize, (pageIdx + 1) * pageSize)
+        : serverStore;
+      return { content: [{ type: 'text' as const, text: formatIpcList(slice) }] };
+    }
   );
 
   s.registerTool(
     'get_electron_main_ipc_event',
     {
-      description: 'Get a single IPC event by eventId from list_electron_main_ipc_events.',
+      description: 'Get IPC event detail by ref (@ch1) or eventId.',
       inputSchema: getSchema,
     },
-    getIpcEventHandler
+    async (args: unknown) => {
+      const params = getSchema.parse(args ?? {});
+      let entry: IpcMonitorEntry | undefined;
+
+      if (params.ref) {
+        const parsed = parseRefFn(params.ref);
+        if (parsed) {
+          const ipcRef = getIpcRefFn(parsed);
+          if (ipcRef) {
+            entry = serverStore.find((e) => e.eventId === ipcRef.eventId);
+          }
+        }
+      }
+      if (!entry && params.eventId != null) {
+        entry = serverStore.find((e) => e.eventId === params.eventId);
+      }
+
+      if (!entry) {
+        return { content: [{ type: 'text' as const, text: 'IPC event not found. Use @ref from list_electron_main_ipc_events.' }] };
+      }
+      return { content: [{ type: 'text' as const, text: formatIpcDetail(entry) }] };
+    }
   );
 }
