@@ -109,6 +109,64 @@ function makeEntry(
   };
 }
 
+/** Format a CDP Runtime.RemoteObject preview property value. */
+interface RemoteObjectPreviewProperty {
+  name: string;
+  type: string;
+  value?: string;
+  subtype?: string;
+  valuePreview?: RemoteObjectPreview;
+}
+
+interface RemoteObjectPreview {
+  type: string;
+  subtype?: string;
+  description?: string;
+  overflow: boolean;
+  properties: RemoteObjectPreviewProperty[];
+}
+
+interface RemoteObjectLike {
+  type: string;
+  subtype?: string;
+  className?: string;
+  value?: unknown;
+  description?: string;
+  objectId?: string;
+  preview?: RemoteObjectPreview;
+}
+
+function formatObjectPreview(preview: RemoteObjectPreview): string {
+  if (preview.type === 'object' && preview.subtype === 'array') {
+    const items = preview.properties.map((p) => {
+      if (p.valuePreview) return formatObjectPreview(p.valuePreview);
+      return p.value ?? p.type;
+    });
+    return `[${items.join(', ')}]${preview.overflow ? ', ...' : ''}`;
+  }
+  const pairs = preview.properties.map((p) => {
+    const val = p.valuePreview ? formatObjectPreview(p.valuePreview) : (p.value ?? p.type);
+    return `${p.name}: ${val}`;
+  });
+  return `{${pairs.join(', ')}}${preview.overflow ? ', ...' : ''}`;
+}
+
+function formatRemoteObject(arg: RemoteObjectLike): string {
+  if (arg.type === 'string') return String(arg.value ?? '');
+  if (arg.type === 'number' || arg.type === 'boolean') return String(arg.value);
+  if (arg.type === 'undefined') return 'undefined';
+  if (arg.type === 'symbol') return arg.description ?? 'Symbol()';
+  if (arg.type === 'bigint') return arg.description ?? String(arg.value);
+  if (arg.type === 'function') return arg.description ?? 'function(){}';
+  // object types
+  if (arg.subtype === 'null') return 'null';
+  if (arg.subtype === 'regexp' || arg.subtype === 'date' || arg.subtype === 'error') {
+    return arg.description ?? '';
+  }
+  if (arg.preview) return formatObjectPreview(arg.preview);
+  return arg.description ?? '[object Object]';
+}
+
 function attachMessageHandler(
   ws: WebSocket,
   targetType: 'main' | 'renderer',
@@ -141,13 +199,41 @@ function attachMessageHandler(
             lineNumber?: number;
             columnNumber?: number;
           };
+          /** Runtime.consoleAPICalled params */
+          type?: string;
+          args?: RemoteObjectLike[];
+          stackTrace?: {
+            callFrames?: Array<{
+              url?: string;
+              lineNumber?: number;
+              columnNumber?: number;
+            }>;
+          };
         };
       };
       const method = msg.method;
       const params = msg.params ?? {};
 
-      if (method === 'Console.messageAdded' && params.message) {
+      if (method === 'Runtime.consoleAPICalled' && params.args) {
+        const args = params.args;
+        const text = args.map(formatRemoteObject).join(' ');
+        const level = params.type ?? 'log';
+        const frame = params.stackTrace?.callFrames?.[0];
+        const entry = makeEntry(
+          targetType,
+          target,
+          'console-api',
+          level,
+          text,
+          frame?.url,
+          frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
+          frame?.columnNumber
+        );
+        addToCurrentBucket(entry);
+      } else if (method === 'Console.messageAdded' && params.message) {
         const m = params.message;
+        // Skip console-api messages — Runtime.consoleAPICalled handles them with richer formatting
+        if (m.source === 'console-api') return;
         const entry = makeEntry(
           targetType,
           target,
