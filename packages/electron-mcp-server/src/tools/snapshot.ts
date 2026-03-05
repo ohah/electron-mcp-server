@@ -11,20 +11,57 @@ import { findElectronTarget, sendCdp, type DevToolsTarget } from './electron';
 import { resetElementRefs, addElementRef, type ElementRef } from './ref-store';
 
 const INTERACTIVE_ROLES = new Set([
-  'button', 'link', 'textbox', 'checkbox', 'radio', 'combobox', 'listbox',
-  'menuitem', 'menuitemcheckbox', 'menuitemradio', 'option', 'searchbox',
-  'slider', 'spinbutton', 'switch', 'tab', 'treeitem',
+  'button',
+  'link',
+  'textbox',
+  'checkbox',
+  'radio',
+  'combobox',
+  'listbox',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'option',
+  'searchbox',
+  'slider',
+  'spinbutton',
+  'switch',
+  'tab',
+  'treeitem',
 ]);
 
 const CONTENT_ROLES = new Set([
-  'heading', 'cell', 'gridcell', 'columnheader', 'rowheader',
-  'listitem', 'article', 'region', 'main', 'navigation',
+  'heading',
+  'cell',
+  'gridcell',
+  'columnheader',
+  'rowheader',
+  'listitem',
+  'article',
+  'region',
+  'main',
+  'navigation',
 ]);
 
 const STRUCTURAL_ROLES = new Set([
-  'generic', 'group', 'list', 'table', 'row', 'rowgroup',
-  'grid', 'treegrid', 'menu', 'menubar', 'toolbar', 'tablist',
-  'tree', 'directory', 'document', 'application', 'presentation', 'none',
+  'generic',
+  'group',
+  'list',
+  'table',
+  'row',
+  'rowgroup',
+  'grid',
+  'treegrid',
+  'menu',
+  'menubar',
+  'toolbar',
+  'tablist',
+  'tree',
+  'directory',
+  'document',
+  'application',
+  'presentation',
+  'none',
 ]);
 
 interface AXNode {
@@ -76,7 +113,7 @@ function formatNode(
   nodesById: Map<string, AXNode>,
   depth: number,
   options: SnapshotOptions,
-  tracker: RoleNameTracker,
+  tracker: RoleNameTracker
 ): string[] {
   // ignored 노드는 건너뛰되, 자식은 처리 (트리가 잘리지 않도록)
   if (node.ignored) {
@@ -139,7 +176,7 @@ function formatNode(
   if (value) line += ` value="${value}"`;
 
   // level 속성 (heading)
-  const levelProp = node.properties?.find(p => p.name === 'level');
+  const levelProp = node.properties?.find((p) => p.name === 'level');
   if (levelProp?.value?.value != null) {
     line += ` [level=${levelProp.value.value}]`;
   }
@@ -198,7 +235,10 @@ export async function takeSnapshotImpl(
 export { getElementRef } from './ref-store';
 
 const takeSnapshotSchema = z.object({
-  interactive: z.boolean().optional().describe('Only show interactive elements (buttons, links, inputs). Saves tokens.'),
+  interactive: z
+    .boolean()
+    .optional()
+    .describe('Only show interactive elements (buttons, links, inputs). Saves tokens.'),
   compact: z.boolean().optional().describe('Remove empty structural elements. Saves tokens.'),
   maxDepth: z.number().optional().describe('Maximum tree depth to include (0 = root only).'),
 });

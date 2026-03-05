@@ -10,15 +10,24 @@ import { getElectronProcessStructure, setSelectedPort } from './electron';
 import { resetProcessRefs, addProcessRef } from './ref-store';
 
 const schema = z.object({
-  includeDevTools: z
-    .boolean()
-    .optional()
-    .describe('Include DevTools windows in renderers'),
+  includeDevTools: z.boolean().optional().describe('Include DevTools windows in renderers'),
 });
 
 interface ProcessStructureResult {
-  main: { id: string; title: string; url: string; webSocketDebuggerUrl: string; type: string } | null;
-  renderers: Array<{ id: string; title: string; url: string; webSocketDebuggerUrl?: string; type: string }>;
+  main: {
+    id: string;
+    title: string;
+    url: string;
+    webSocketDebuggerUrl: string;
+    type: string;
+  } | null;
+  renderers: Array<{
+    id: string;
+    title: string;
+    url: string;
+    webSocketDebuggerUrl?: string;
+    type: string;
+  }>;
   capabilities: { main: string[]; renderers: string[] };
   apps: Array<{ port: number; targetCount: number }>;
 }
@@ -89,7 +98,9 @@ export function registerGetElectronProcessStructure(server: McpServer): void {
     },
     async (args: unknown) => {
       const params = schema.parse(args ?? {});
-      const result = await getElectronProcessStructure(!!params.includeDevTools) as ProcessStructureResult;
+      const result = (await getElectronProcessStructure(
+        !!params.includeDevTools
+      )) as ProcessStructureResult;
       const text = formatProcessTree(result);
       return { content: [{ type: 'text' as const, text }] };
     }

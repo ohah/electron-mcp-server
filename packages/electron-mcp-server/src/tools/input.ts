@@ -81,7 +81,8 @@ const fillSchema = z.object({
 });
 
 const fillFormSchema = z.object({
-  fields: z.array(z.object({ ref: z.string(), value: z.string() }))
+  fields: z
+    .array(z.object({ ref: z.string(), value: z.string() }))
     .describe('Fields to fill: [{ ref: "@e1", value: "text" }]'),
 });
 
@@ -109,10 +110,21 @@ function parseKeyCombination(keyInput: string): { modifiers: number; key: string
 }
 
 const KEY_TO_CODE: Record<string, string> = {
-  Enter: 'Enter', Backspace: 'Backspace', Tab: 'Tab', Escape: 'Escape',
-  Space: 'Space', ArrowLeft: 'ArrowLeft', ArrowRight: 'ArrowRight',
-  ArrowUp: 'ArrowUp', ArrowDown: 'ArrowDown', Home: 'Home', End: 'End',
-  PageUp: 'PageUp', PageDown: 'PageDown', Insert: 'Insert', Delete: 'Delete',
+  Enter: 'Enter',
+  Backspace: 'Backspace',
+  Tab: 'Tab',
+  Escape: 'Escape',
+  Space: 'Space',
+  ArrowLeft: 'ArrowLeft',
+  ArrowRight: 'ArrowRight',
+  ArrowUp: 'ArrowUp',
+  ArrowDown: 'ArrowDown',
+  Home: 'Home',
+  End: 'End',
+  PageUp: 'PageUp',
+  PageDown: 'PageDown',
+  Insert: 'Insert',
+  Delete: 'Delete',
 };
 function keyToCode(key: string): string {
   if (KEY_TO_CODE[key]) return KEY_TO_CODE[key]!;
@@ -131,9 +143,15 @@ export function registerInputTools(server: McpServer): void {
     inputSchema: z.ZodTypeAny,
     handler: (args: unknown) => Promise<{ content: Array<{ type: 'text'; text: string }> }>
   ) => {
-    (server as {
-      registerTool(name: string, def: { description: string; inputSchema: z.ZodTypeAny }, handler: (args: unknown) => Promise<unknown>): void;
-    }).registerTool(name, { description, inputSchema }, handler);
+    (
+      server as {
+        registerTool(
+          name: string,
+          def: { description: string; inputSchema: z.ZodTypeAny },
+          handler: (args: unknown) => Promise<unknown>
+        ): void;
+      }
+    ).registerTool(name, { description, inputSchema }, handler);
   };
 
   register(
@@ -148,10 +166,20 @@ export function registerInputTools(server: McpServer): void {
         const t = ts();
         const count = dblClick ? 2 : 1;
         await sendCdp(ws, 'Input.dispatchMouseEvent', {
-          type: 'mousePressed', x, y, button: 'left', clickCount: count, timestamp: t,
+          type: 'mousePressed',
+          x,
+          y,
+          button: 'left',
+          clickCount: count,
+          timestamp: t,
         });
         await sendCdp(ws, 'Input.dispatchMouseEvent', {
-          type: 'mouseReleased', x, y, button: 'left', clickCount: count, timestamp: t,
+          type: 'mouseReleased',
+          x,
+          y,
+          button: 'left',
+          clickCount: count,
+          timestamp: t,
         });
       });
       return { content: [{ type: 'text', text: dblClick ? 'Double-clicked' : 'Clicked' }] };
@@ -168,44 +196,73 @@ export function registerInputTools(server: McpServer): void {
       await withCdpWs(target, async (ws) => {
         const { x, y } = await getCenterForSelector(ws, ref);
         await sendCdp(ws, 'Input.dispatchMouseEvent', {
-          type: 'mouseMoved', x, y, timestamp: ts(),
+          type: 'mouseMoved',
+          x,
+          y,
+          timestamp: ts(),
         });
       });
       return { content: [{ type: 'text', text: 'Hovered' }] };
     }
   );
 
-  register(
-    'drag',
-    'Drag element from ref to ref.',
-    dragSchema,
-    async (args) => {
-      const { from, to } = dragSchema.parse(args);
-      const target = await findElectronTarget();
-      const dragData = { items: [{ mimeType: 'text/plain', data: 'demo' }], dragOperationsMask: 1 };
-      await withCdpWs(target, async (ws) => {
-        const fromPos = await getCenterForSelector(ws, from);
-        const toPos = await getCenterForSelector(ws, to);
-        const t = ts();
-        await sendCdp(ws, 'Input.dispatchMouseEvent', {
-          type: 'mousePressed', x: fromPos.x, y: fromPos.y, button: 'left', clickCount: 1, timestamp: t,
-        });
-        await sendCdp(ws, 'Input.dispatchMouseEvent', {
-          type: 'mouseMoved', x: toPos.x, y: toPos.y, timestamp: t,
-        });
-        try {
-          await sendCdp(ws, 'Input.dispatchDragEvent', { type: 'dragEnter', x: toPos.x, y: toPos.y, data: dragData, modifiers: 0 });
-          await sendCdp(ws, 'Input.dispatchDragEvent', { type: 'dragOver', x: toPos.x, y: toPos.y, data: dragData, modifiers: 0 });
-          await sendCdp(ws, 'Input.dispatchDragEvent', { type: 'drop', x: toPos.x, y: toPos.y, data: dragData, modifiers: 0 });
-        } catch {
-          await sendCdp(ws, 'Input.dispatchMouseEvent', {
-            type: 'mouseReleased', x: toPos.x, y: toPos.y, button: 'left', clickCount: 1, timestamp: ts(),
-          });
-        }
+  register('drag', 'Drag element from ref to ref.', dragSchema, async (args) => {
+    const { from, to } = dragSchema.parse(args);
+    const target = await findElectronTarget();
+    const dragData = { items: [{ mimeType: 'text/plain', data: 'demo' }], dragOperationsMask: 1 };
+    await withCdpWs(target, async (ws) => {
+      const fromPos = await getCenterForSelector(ws, from);
+      const toPos = await getCenterForSelector(ws, to);
+      const t = ts();
+      await sendCdp(ws, 'Input.dispatchMouseEvent', {
+        type: 'mousePressed',
+        x: fromPos.x,
+        y: fromPos.y,
+        button: 'left',
+        clickCount: 1,
+        timestamp: t,
       });
-      return { content: [{ type: 'text', text: 'Dragged' }] };
-    }
-  );
+      await sendCdp(ws, 'Input.dispatchMouseEvent', {
+        type: 'mouseMoved',
+        x: toPos.x,
+        y: toPos.y,
+        timestamp: t,
+      });
+      try {
+        await sendCdp(ws, 'Input.dispatchDragEvent', {
+          type: 'dragEnter',
+          x: toPos.x,
+          y: toPos.y,
+          data: dragData,
+          modifiers: 0,
+        });
+        await sendCdp(ws, 'Input.dispatchDragEvent', {
+          type: 'dragOver',
+          x: toPos.x,
+          y: toPos.y,
+          data: dragData,
+          modifiers: 0,
+        });
+        await sendCdp(ws, 'Input.dispatchDragEvent', {
+          type: 'drop',
+          x: toPos.x,
+          y: toPos.y,
+          data: dragData,
+          modifiers: 0,
+        });
+      } catch {
+        await sendCdp(ws, 'Input.dispatchMouseEvent', {
+          type: 'mouseReleased',
+          x: toPos.x,
+          y: toPos.y,
+          button: 'left',
+          clickCount: 1,
+          timestamp: ts(),
+        });
+      }
+    });
+    return { content: [{ type: 'text', text: 'Dragged' }] };
+  });
 
   register(
     'fill',
@@ -227,7 +284,8 @@ export function registerInputTools(server: McpServer): void {
             return el ? true : false;
           })(${JSON.stringify(ref)})`;
           const r = (await sendCdp(ws, 'Runtime.evaluate', {
-            expression: expr, returnByValue: true,
+            expression: expr,
+            returnByValue: true,
           })) as { result?: { value?: boolean } };
           if (!r?.result?.value) throw new Error(`Element not found: ${ref}`);
         }
@@ -258,7 +316,8 @@ export function registerInputTools(server: McpServer): void {
               return el ? true : false;
             })(${JSON.stringify(ref)})`;
             const r = (await sendCdp(ws, 'Runtime.evaluate', {
-              expression: expr, returnByValue: true,
+              expression: expr,
+              returnByValue: true,
             })) as { result?: { value?: boolean } };
             if (!r?.result?.value) throw new Error(`Element not found: ${ref}`);
           }
@@ -281,10 +340,18 @@ export function registerInputTools(server: McpServer): void {
       await withCdpWs(target, async (ws) => {
         const t = ts();
         await sendCdp(ws, 'Input.dispatchKeyEvent', {
-          type: 'keyDown', key: keyName, code, modifiers, timestamp: t,
+          type: 'keyDown',
+          key: keyName,
+          code,
+          modifiers,
+          timestamp: t,
         });
         await sendCdp(ws, 'Input.dispatchKeyEvent', {
-          type: 'keyUp', key: keyName, code, modifiers, timestamp: t,
+          type: 'keyUp',
+          key: keyName,
+          code,
+          modifiers,
+          timestamp: t,
         });
       });
       return { content: [{ type: 'text', text: `Pressed ${key}` }] };
@@ -308,10 +375,20 @@ export function registerInputTools(server: McpServer): void {
             const { x, y } = await getCenterForSelector(ws, ref);
             const t = ts();
             await sendCdp(ws, 'Input.dispatchMouseEvent', {
-              type: 'mousePressed', x, y, button: 'left', clickCount: 1, timestamp: t,
+              type: 'mousePressed',
+              x,
+              y,
+              button: 'left',
+              clickCount: 1,
+              timestamp: t,
             });
             await sendCdp(ws, 'Input.dispatchMouseEvent', {
-              type: 'mouseReleased', x, y, button: 'left', clickCount: 1, timestamp: t,
+              type: 'mouseReleased',
+              x,
+              y,
+              button: 'left',
+              clickCount: 1,
+              timestamp: t,
             });
             await sendCdp(ws, 'DOM.setFileInputFiles', { backendNodeId, files: [filePath] });
           }
@@ -322,7 +399,8 @@ export function registerInputTools(server: McpServer): void {
           const rootId = doc?.root?.nodeId;
           if (rootId == null) throw new Error('DOM.getDocument failed');
           const query = (await sendCdp(ws, 'DOM.querySelector', {
-            nodeId: rootId, selector: ref,
+            nodeId: rootId,
+            selector: ref,
           })) as { nodeId?: number };
           const nodeId = query?.nodeId;
           if (nodeId == null || nodeId === 0) throw new Error(`Element not found: ${ref}`);

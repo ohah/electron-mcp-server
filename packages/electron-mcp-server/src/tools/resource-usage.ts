@@ -49,10 +49,22 @@ const RESOURCE_SCRIPT = `
 `;
 
 interface ResourceData {
-  memory: { rss: number; heapTotal: number; heapUsed: number; external: number; arrayBuffers?: number };
+  memory: {
+    rss: number;
+    heapTotal: number;
+    heapUsed: number;
+    external: number;
+    arrayBuffers?: number;
+  };
   cpu: { user: number; system: number };
   pid: number;
-  os?: { loadavg?: number[]; freemem?: number; totalmem?: number; platform?: string; error?: string };
+  os?: {
+    loadavg?: number[];
+    freemem?: number;
+    totalmem?: number;
+    platform?: string;
+    error?: string;
+  };
 }
 
 function formatResourceUsage(data: ResourceData): string {
@@ -71,14 +83,14 @@ function formatResourceUsage(data: ResourceData): string {
     '',
     '## CPU (cumulative)',
     `  user:   ${(data.cpu.user / 1000).toFixed(1)}ms`,
-    `  system: ${(data.cpu.system / 1000).toFixed(1)}ms`,
+    `  system: ${(data.cpu.system / 1000).toFixed(1)}ms`
   );
   if (data.os && !data.os.error) {
     lines.push(
       '',
       `## OS (${data.os.platform})`,
-      `  load avg: ${data.os.loadavg?.map(v => v.toFixed(2)).join(', ')}`,
-      `  memory:   ${formatBytes(data.os.freemem!)} free / ${formatBytes(data.os.totalmem!)} total`,
+      `  load avg: ${data.os.loadavg?.map((v) => v.toFixed(2)).join(', ')}`,
+      `  memory:   ${formatBytes(data.os.freemem!)} free / ${formatBytes(data.os.totalmem!)} total`
     );
   }
   return lines.join('\n');
@@ -104,7 +116,12 @@ export function registerResourceUsageTool(server: McpServer): void {
       const mainTarget = await getMainProcessTarget();
       if (!mainTarget) {
         return {
-          content: [{ type: 'text' as const, text: 'No main process. Run Electron with --remote-debugging-port.' }],
+          content: [
+            {
+              type: 'text' as const,
+              text: 'No main process. Run Electron with --remote-debugging-port.',
+            },
+          ],
         };
       }
       const script = RESOURCE_SCRIPT.replace('INCLUDE_OS', String(params.includeOs));
