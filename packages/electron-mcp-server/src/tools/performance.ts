@@ -13,6 +13,11 @@ import { z } from 'zod';
 import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { findElectronTarget, sendCdp, withCdpWs } from './electron';
+import {
+  RELOAD_WAIT_MS,
+  AUTO_STOP_TRACE_DURATION_MS,
+  TRACING_COMPLETE_TIMEOUT_MS,
+} from './constants';
 
 function gzipAsync(buf: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -34,9 +39,6 @@ const TRACE_CATEGORIES =
   'disabled-by-default-v8.cpu_profiler,disabled-by-default-v8.cpu_profiler.hires,' +
   'latencyInfo,loading,disabled-by-default-lighthouse,v8.execute,v8';
 
-const RELOAD_WAIT_MS = 1500;
-const AUTO_STOP_TRACE_DURATION_MS = 5_000;
-const TRACING_COMPLETE_TIMEOUT_MS = 60_000;
 
 let isTracing = false;
 let lastTraceFilePath: string | null = null;

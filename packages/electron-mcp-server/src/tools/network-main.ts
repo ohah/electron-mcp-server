@@ -5,6 +5,7 @@
  */
 
 import { executeInElectron, getMainProcessTarget } from './electron';
+import { MAX_MAIN_NETWORK_SAVED } from './constants';
 
 export interface MainNetworkRequestEntry {
   requestId: string;
@@ -82,8 +83,6 @@ const CLEAR_BUFFER_SCRIPT = `
 })();
 `;
 
-/** 콘솔/렌더러 네트워크와 동일하게 서버 저장 개수 상한. 장기 실행 시 메모리 완화. */
-const MAX_MAIN_NETWORK_SAVED = 500;
 
 const byRequestId = new Map<string, MainNetworkRequestEntry>();
 const orderList: string[] = [];

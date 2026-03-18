@@ -14,6 +14,11 @@ import {
   getMainNetworkRequest,
   getMainNetworkRequestList,
 } from './network-main';
+import { NavigationBucketStore } from './navigation-bucket-store';
+import { MAX_NAVIGATION_SAVED } from './constants';
+import { createLogger } from './logger';
+
+const logger = createLogger('network');
 
 export interface NetworkRequestEntry {
   requestId: string;
@@ -31,13 +36,16 @@ export interface NetworkRequestEntry {
   loaderId?: string;
 }
 
-const MAX_NAVIGATION_SAVED = 3;
-
-/** 레퍼런스와 동일: 페이지별 저장소, 내비게이션당 버킷(최근 3개). */
 let captureWs: WebSocket | null = null;
 const byRequestId = new Map<string, NetworkRequestEntry>();
-/** 최신 내비게이션 먼저. navigations[0] = 현재 내비게이션 요청 목록. */
-const navigationBuckets: NetworkRequestEntry[][] = [[]];
+const bucketStore = new NavigationBucketStore<NetworkRequestEntry>({
+  maxBuckets: MAX_NAVIGATION_SAVED,
+  onEvict: (entries: NetworkRequestEntry[]) => {
+    for (const e of entries) {
+      byRequestId.delete(e.requestId);
+    }
+  },
+});
 let fetchBodiesOption = true;
 const bodyQueue: string[] = [];
 let bodyQueueScheduled = false;
@@ -60,27 +68,8 @@ function parseHeaders(
   return out;
 }
 
-function ensureCurrentBucket(): void {
-  if (navigationBuckets.length === 0) {
-    navigationBuckets.push([]);
-  }
-}
-
 function addToCurrentBucket(entry: NetworkRequestEntry): void {
-  ensureCurrentBucket();
-  navigationBuckets[0].push(entry);
-}
-
-function splitAfterNavigation(): void {
-  navigationBuckets.unshift([]);
-  if (navigationBuckets.length > MAX_NAVIGATION_SAVED) {
-    const removed = navigationBuckets.pop();
-    if (removed) {
-      for (const e of removed) {
-        byRequestId.delete(e.requestId);
-      }
-    }
-  }
+  bucketStore.add(entry);
 }
 
 function scheduleBodyQueue(): void {
@@ -112,8 +101,7 @@ function scheduleBodyQueue(): void {
 
 function clearCaptureState(): void {
   byRequestId.clear();
-  navigationBuckets.length = 0;
-  navigationBuckets.push([]);
+  bucketStore.clear();
   bodyQueue.length = 0;
 }
 
@@ -191,7 +179,7 @@ async function startCaptureIfNeeded(): Promise<void> {
       } else if (method === 'Page.frameNavigated') {
         const frame = params as { frame?: { id?: string; parentId?: string } };
         if (frame?.frame?.id && !frame.frame.parentId) {
-          splitAfterNavigation();
+          bucketStore.splitAfterNavigation();
         }
       }
     } catch {
@@ -218,17 +206,9 @@ async function startCaptureIfNeeded(): Promise<void> {
   captureWs = ws;
 }
 
-/** 레퍼런스 getData(page, includePreservedData): 현재 내비 또는 최근 3개 내비 요청. */
+/** 현재 내비 또는 최근 3개 내비 요청. */
 function getStoredRequests(includePreservedData?: boolean): NetworkRequestEntry[] {
-  if (!includePreservedData) {
-    return navigationBuckets[0] ?? [];
-  }
-  const out: NetworkRequestEntry[] = [];
-  for (let i = 0; i < MAX_NAVIGATION_SAVED && i < navigationBuckets.length; i++) {
-    const bucket = navigationBuckets[i];
-    if (bucket) out.push(...bucket);
-  }
-  return out;
+  return bucketStore.getAllEntries(includePreservedData ?? false);
 }
 
 const listSchema = z.object({
