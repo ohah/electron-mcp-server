@@ -156,6 +156,119 @@ function formatRemoteObject(arg: RemoteObjectLike): string {
   return arg.description ?? '[object Object]';
 }
 
+/** Runtime.getProperties 응답의 PropertyDescriptor */
+interface PropertyDescriptor {
+  name: string;
+  value?: RemoteObjectLike;
+  get?: RemoteObjectLike;
+  set?: RemoteObjectLike;
+  configurable?: boolean;
+  enumerable?: boolean;
+  isOwn?: boolean;
+}
+
+const MAX_RESOLVE_DEPTH = 3;
+const MAX_PROPERTIES = 50;
+
+/**
+ * Runtime.getProperties로 객체 속성을 재귀 탐색하여 포맷.
+ * JSON.stringify 없이 동작하므로 순환 참조, non-serializable 값도 안전.
+ */
+async function formatWithGetProperties(
+  ws: WebSocket,
+  objectId: string,
+  subtype: string | undefined,
+  depth: number,
+  seen: Set<string>
+): Promise<string> {
+  if (depth > MAX_RESOLVE_DEPTH) return '{...}';
+  if (seen.has(objectId)) return '[Circular]';
+  seen.add(objectId);
+
+  try {
+    const res = (await sendCdp(ws, 'Runtime.getProperties', {
+      objectId,
+      ownProperties: true,
+      generatePreview: true,
+    })) as { result?: PropertyDescriptor[] };
+
+    const descriptors = res?.result;
+    if (!descriptors || descriptors.length === 0) return '{}';
+
+    const isArray = subtype === 'array';
+    const entries: string[] = [];
+    let truncated = false;
+
+    for (const prop of descriptors) {
+      // 배열의 내부 속성(length 등)은 건너뛰기
+      if (isArray && prop.name === 'length') continue;
+      // getter/setter만 있고 value 없는 경우 건너뛰기
+      if (!prop.value) continue;
+
+      if (entries.length >= MAX_PROPERTIES) {
+        truncated = true;
+        break;
+      }
+
+      const val = await formatResolvedValue(ws, prop.value, depth + 1, seen);
+
+      if (isArray) {
+        entries.push(val);
+      } else {
+        entries.push(`${prop.name}: ${val}`);
+      }
+    }
+
+    const suffix = truncated ? ', ...' : '';
+    return isArray ? `[${entries.join(', ')}${suffix}]` : `{${entries.join(', ')}${suffix}}`;
+  } catch {
+    return '[object Object]';
+  }
+}
+
+/** 단일 RemoteObject 값을 포맷. 객체면 재귀 탐색. */
+async function formatResolvedValue(
+  ws: WebSocket,
+  value: RemoteObjectLike,
+  depth: number,
+  seen: Set<string>
+): Promise<string> {
+  // 프리미티브 타입
+  if (value.type === 'string') return JSON.stringify(value.value ?? '');
+  if (value.type === 'number' || value.type === 'boolean') return String(value.value);
+  if (value.type === 'undefined') return 'undefined';
+  if (value.type === 'symbol') return value.description ?? 'Symbol()';
+  if (value.type === 'bigint') return `${value.description ?? value.value}n`;
+  if (value.type === 'function') return value.description ?? 'function(){}';
+
+  // null
+  if (value.subtype === 'null') return 'null';
+
+  // 특수 객체
+  if (value.subtype === 'regexp' || value.subtype === 'date' || value.subtype === 'error') {
+    return value.description ?? String(value.value);
+  }
+
+  // Map, Set, WeakMap 등
+  if (value.subtype === 'map' || value.subtype === 'set') {
+    return value.description ?? `${value.className ?? value.subtype}(…)`;
+  }
+
+  // Promise, generator 등
+  if (value.subtype === 'promise' || value.subtype === 'generator') {
+    return value.description ?? `${value.className ?? value.subtype}`;
+  }
+
+  // 일반 객체/배열: objectId가 있으면 재귀 탐색
+  if (value.objectId && depth <= MAX_RESOLVE_DEPTH) {
+    return formatWithGetProperties(ws, value.objectId, value.subtype, depth, seen);
+  }
+
+  // objectId 없거나 depth 초과 → preview 또는 description 사용
+  if (value.preview) return formatObjectPreview(value.preview);
+  return value.description ?? '[object Object]';
+}
+
 /** objectId가 있는 args를 deep resolve. WebSocket이 열려 있어야 한다. */
 async function deepResolveArgs(ws: WebSocket, args: RemoteObjectLike[]): Promise<string[]> {
   const results: string[] = [];
@@ -166,15 +279,8 @@ async function deepResolveArgs(ws: WebSocket, args: RemoteObjectLike[]): Promise
       arg.subtype !== 'null'
     ) {
       try {
-        const res = (await sendCdp(ws, 'Runtime.callFunctionOn', {
-          objectId: arg.objectId,
-          functionDeclaration: `function() {
-            try { return JSON.stringify(this, null, 2); }
-            catch(e) { return String(this); }
-          }`,
-          returnByValue: true,
-        })) as { result?: { value?: string } };
-        results.push(res?.result?.value ?? formatRemoteObject(arg));
+        const text = await formatResolvedValue(ws, arg, 0, new Set());
+        results.push(text);
       } catch {
         results.push(formatRemoteObject(arg));
       }
