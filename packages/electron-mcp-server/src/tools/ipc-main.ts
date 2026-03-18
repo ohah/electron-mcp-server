@@ -12,6 +12,7 @@ import {
   parseRef as parseRefFn,
   getIpcRef as getIpcRefFn,
 } from './ref-store';
+import { MAX_IPC_EVENTS_SAVED } from './constants';
 
 export interface IpcMonitorEntry {
   eventId: number;
@@ -72,7 +73,6 @@ const CLEAR_BUFFER_SCRIPT = `
 })();
 `;
 
-const MAX_IPC_EVENTS_SAVED = 500;
 
 let nextEventId = 1;
 const serverStore: IpcMonitorEntry[] = [];

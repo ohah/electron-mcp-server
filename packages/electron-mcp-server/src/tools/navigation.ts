@@ -20,6 +20,7 @@ import {
   executeInElectron,
   type DevToolsTarget,
 } from './electron';
+import { CDP_NAVIGATION_TIMEOUT_MS, WAIT_FOR_POLL_MS } from './constants';
 
 const listPagesSchema = z.object({});
 
@@ -54,8 +55,6 @@ const waitForSchema = z.object({
   timeout: z.number().optional().default(30_000).describe('Wait timeout (ms)'),
 });
 
-const CDP_NAVIGATION_TIMEOUT_MS = 30_000;
-const WAIT_FOR_POLL_MS = 500;
 
 async function navigatePageImpl(
   target: DevToolsTarget,

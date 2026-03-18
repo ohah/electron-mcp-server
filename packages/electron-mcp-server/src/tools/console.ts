@@ -9,6 +9,11 @@ import { z } from 'zod';
 import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { findRendererTarget, getMainProcessTarget, sendCdp, type DevToolsTarget } from './electron';
+import { NavigationBucketStore } from './navigation-bucket-store';
+import { MAX_NAVIGATION_SAVED } from './constants';
+import { createLogger } from './logger';
+
+const logger = createLogger('console');
 
 export interface ConsoleMessageEntry {
   msgid: number;
@@ -26,7 +31,6 @@ export interface ConsoleMessageEntry {
   column?: number;
 }
 
-const MAX_NAVIGATION_SAVED = 3;
 let nextMsgId = 1;
 
 let mainWs: WebSocket | null = null;
@@ -34,38 +38,25 @@ let rendererWs: WebSocket | null = null;
 let rendererTargetId: string | null = null;
 /** msgid → 메시지 */
 const byMsgId = new Map<number, ConsoleMessageEntry>();
-const navigationBuckets: ConsoleMessageEntry[][] = [[]];
+const bucketStore = new NavigationBucketStore<ConsoleMessageEntry>({
+  maxBuckets: MAX_NAVIGATION_SAVED,
+  onEvict: (entries: ConsoleMessageEntry[]) => {
+    for (const e of entries) {
+      byMsgId.delete(e.msgid);
+    }
+  },
+});
 /** includeMainProcess로 메인 캡처 여부. 재연결 시 사용 */
 let captureMain = true;
 
-function ensureCurrentBucket(): void {
-  if (navigationBuckets.length === 0) {
-    navigationBuckets.push([]);
-  }
-}
-
-function addToCurrentBucket(entry: ConsoleMessageEntry): void {
-  ensureCurrentBucket();
-  navigationBuckets[0].push(entry);
+function addEntry(entry: ConsoleMessageEntry): void {
+  bucketStore.add(entry);
   byMsgId.set(entry.msgid, entry);
-}
-
-function splitAfterNavigation(): void {
-  navigationBuckets.unshift([]);
-  if (navigationBuckets.length > MAX_NAVIGATION_SAVED) {
-    const removed = navigationBuckets.pop();
-    if (removed) {
-      for (const e of removed) {
-        byMsgId.delete(e.msgid);
-      }
-    }
-  }
 }
 
 function clearConsoleState(): void {
   byMsgId.clear();
-  navigationBuckets.length = 0;
-  navigationBuckets.push([]);
+  bucketStore.clear();
 }
 
 function closeAllCapture(): void {
@@ -247,7 +238,6 @@ function attachMessageHandler(
         const args = params.args;
         const level = params.type ?? 'log';
         const frame = params.stackTrace?.callFrames?.[0];
-        // deep resolve를 비동기로 수행하되, 실패 시 preview fallback
         deepResolveArgs(ws, args)
           .then((parts) => {
             const text = parts.join(' ');
@@ -261,7 +251,7 @@ function attachMessageHandler(
               frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
               frame?.columnNumber
             );
-            addToCurrentBucket(entry);
+            addEntry(entry);
           })
           .catch(() => {
             const text = args.map(formatRemoteObject).join(' ');
@@ -275,11 +265,10 @@ function attachMessageHandler(
               frame?.lineNumber != null ? frame.lineNumber + 1 : undefined,
               frame?.columnNumber
             );
-            addToCurrentBucket(entry);
+            addEntry(entry);
           });
       } else if (method === 'Console.messageAdded' && params.message) {
         const m = params.message;
-        // Skip console-api messages — Runtime.consoleAPICalled handles them with richer formatting
         if (m.source === 'console-api') return;
         const entry = makeEntry(
           targetType,
@@ -291,7 +280,7 @@ function attachMessageHandler(
           m.line,
           m.column
         );
-        addToCurrentBucket(entry);
+        addEntry(entry);
       } else if (method === 'Log.entryAdded' && params.entry) {
         const e = params.entry;
         const entry = makeEntry(
@@ -304,7 +293,7 @@ function attachMessageHandler(
           e.lineNumber,
           undefined
         );
-        addToCurrentBucket(entry);
+        addEntry(entry);
       } else if (method === 'Runtime.exceptionThrown' && params.exceptionDetails) {
         const ex = params.exceptionDetails;
         const text =
@@ -319,11 +308,11 @@ function attachMessageHandler(
           ex.lineNumber,
           ex.columnNumber
         );
-        addToCurrentBucket(entry);
+        addEntry(entry);
       } else if (method === 'Page.frameNavigated' && targetType === 'renderer') {
         const frame = params.frame;
         if (frame?.id && !frame.parentId) {
-          splitAfterNavigation();
+          bucketStore.splitAfterNavigation();
         }
       }
     } catch {
@@ -384,6 +373,7 @@ async function startConsoleCaptureIfNeeded(includeMainProcess: boolean): Promise
     await sendCdp(rendererWs, 'Page.enable');
     await sendCdp(rendererWs, 'Log.enable');
     await sendCdp(rendererWs, 'Runtime.enable');
+    logger.debug('Console capture started for renderer', rendererTarget.id);
   } else {
     rendererWs = null;
     rendererTargetId = null;
@@ -403,24 +393,16 @@ async function startConsoleCaptureIfNeeded(includeMainProcess: boolean): Promise
     try {
       await sendCdp(currentMainWs, 'Log.enable');
     } catch {
-      // Node(메인) 타겟은 Log.enable 미지원일 수 있음. Console/Runtime만 사용.
+      // Node(메인) 타겟은 Log.enable 미지원일 수 있음
     }
     await sendCdp(currentMainWs, 'Runtime.enable');
+    logger.debug('Console capture started for main process');
   }
 }
 
 /** 저장된 메시지 반환. timestamp 기준 정렬, types 필터. */
 function getStoredMessages(includePreserved: boolean, types?: string[]): ConsoleMessageEntry[] {
-  let list: ConsoleMessageEntry[];
-  if (!includePreserved) {
-    list = navigationBuckets[0] ?? [];
-  } else {
-    list = [];
-    for (let i = 0; i < MAX_NAVIGATION_SAVED && i < navigationBuckets.length; i++) {
-      const bucket = navigationBuckets[i];
-      if (bucket) list.push(...bucket);
-    }
-  }
+  let list = bucketStore.getAllEntries(includePreserved);
   list = [...list].sort((a, b) => a.timestamp - b.timestamp);
   if (types && types.length > 0) {
     const set = new Set(types.map((t) => t.toLowerCase()));
