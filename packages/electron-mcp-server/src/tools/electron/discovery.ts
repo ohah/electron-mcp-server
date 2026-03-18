@@ -335,7 +335,7 @@ export async function getElectronProcessStructure(
         apps.length > 1
           ? `${apps.length} Electron app(s) (ports ${apps.map((a) => a.port).join(', ')}). Use select_port to choose. Current: port ${app.port}`
           : `Electron: main ${currentItem.main ? '1' : '0'}, renderers ${currentItem.renderers.length} (port ${app.port})`,
-      automationReady: (currentItem.main != null || currentItem.renderers.length > 0),
+      automationReady: currentItem.main != null || currentItem.renderers.length > 0,
       apps: appItems.length > 0 ? appItems : undefined,
     };
   } catch (e) {

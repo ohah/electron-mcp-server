@@ -55,7 +55,6 @@ const waitForSchema = z.object({
   timeout: z.number().optional().default(30_000).describe('Wait timeout (ms)'),
 });
 
-
 async function navigatePageImpl(
   target: DevToolsTarget,
   params: z.infer<typeof navigatePageSchema>

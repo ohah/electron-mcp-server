@@ -39,7 +39,6 @@ const TRACE_CATEGORIES =
   'disabled-by-default-v8.cpu_profiler,disabled-by-default-v8.cpu_profiler.hires,' +
   'latencyInfo,loading,disabled-by-default-lighthouse,v8.execute,v8';
 
-
 let isTracing = false;
 let lastTraceFilePath: string | null = null;
 let lastTraceEventsCount = 0;
