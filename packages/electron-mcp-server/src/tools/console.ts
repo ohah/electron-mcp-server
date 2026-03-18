@@ -167,7 +167,7 @@ interface PropertyDescriptor {
   isOwn?: boolean;
 }
 
-const MAX_RESOLVE_DEPTH = 3;
+const MAX_RESOLVE_DEPTH = 5;
 const MAX_PROPERTIES = 50;
 
 /**
