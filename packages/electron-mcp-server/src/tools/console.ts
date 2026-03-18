@@ -473,10 +473,12 @@ async function startConsoleCaptureIfNeeded(includeMainProcess: boolean): Promise
         clearConsoleState();
       }
     });
-    await sendCdp(rendererWs, 'Console.enable');
-    await sendCdp(rendererWs, 'Page.enable');
-    await sendCdp(rendererWs, 'Log.enable');
-    await sendCdp(rendererWs, 'Runtime.enable');
+    await Promise.all([
+      sendCdp(rendererWs, 'Console.enable'),
+      sendCdp(rendererWs, 'Page.enable'),
+      sendCdp(rendererWs, 'Log.enable'),
+      sendCdp(rendererWs, 'Runtime.enable'),
+    ]);
     logger.debug('Console capture started for renderer', rendererTarget.id);
   } else {
     rendererWs = null;
@@ -493,13 +495,13 @@ async function startConsoleCaptureIfNeeded(includeMainProcess: boolean): Promise
     currentMainWs.on('error', () => {
       if (mainWs === currentMainWs) mainWs = null;
     });
-    await sendCdp(currentMainWs, 'Console.enable');
-    try {
-      await sendCdp(currentMainWs, 'Log.enable');
-    } catch {
-      // Node(메인) 타겟은 Log.enable 미지원일 수 있음
-    }
-    await sendCdp(currentMainWs, 'Runtime.enable');
+    await Promise.all([
+      sendCdp(currentMainWs, 'Console.enable'),
+      sendCdp(currentMainWs, 'Log.enable').catch(() => {
+        // Node(메인) 타겟은 Log.enable 미지원일 수 있음
+      }),
+      sendCdp(currentMainWs, 'Runtime.enable'),
+    ]);
     logger.debug('Console capture started for main process');
   }
 }
