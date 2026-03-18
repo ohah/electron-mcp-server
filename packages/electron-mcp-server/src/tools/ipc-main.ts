@@ -73,7 +73,6 @@ const CLEAR_BUFFER_SCRIPT = `
 })();
 `;
 
-
 let nextEventId = 1;
 const serverStore: IpcMonitorEntry[] = [];
 

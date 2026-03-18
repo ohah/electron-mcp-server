@@ -83,7 +83,6 @@ const CLEAR_BUFFER_SCRIPT = `
 })();
 `;
 
-
 const byRequestId = new Map<string, MainNetworkRequestEntry>();
 const orderList: string[] = [];
 
