@@ -34,3 +34,6 @@ export const MAX_MAIN_NETWORK_SAVED = 500;
 
 /** executeInElectron 기본 타임아웃 (ms) */
 export const EXECUTE_TIMEOUT_MS = 10_000;
+
+/** 커넥션 풀 유휴 타임아웃 (ms) */
+export const CONNECTION_POOL_IDLE_TIMEOUT_MS = 30_000;

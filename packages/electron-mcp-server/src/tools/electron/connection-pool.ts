@@ -4,6 +4,7 @@
  */
 
 import WebSocket from 'ws';
+import { CONNECTION_POOL_IDLE_TIMEOUT_MS } from '../constants';
 import { createLogger } from '../logger';
 
 const logger = createLogger('connection-pool');
@@ -14,8 +15,6 @@ interface PooledConnection {
   lastUsed: number;
   refCount: number;
 }
-
-const IDLE_TIMEOUT_MS = 30_000;
 const pool = new Map<string, PooledConnection>();
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -24,7 +23,7 @@ function startCleanupTimer(): void {
   cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [url, conn] of pool) {
-      if (conn.refCount === 0 && now - conn.lastUsed > IDLE_TIMEOUT_MS) {
+      if (conn.refCount === 0 && now - conn.lastUsed > CONNECTION_POOL_IDLE_TIMEOUT_MS) {
         logger.debug(`Closing idle connection: ${url}`);
         try {
           conn.ws.close();
@@ -38,7 +37,7 @@ function startCleanupTimer(): void {
       clearInterval(cleanupTimer);
       cleanupTimer = null;
     }
-  }, IDLE_TIMEOUT_MS / 2);
+  }, CONNECTION_POOL_IDLE_TIMEOUT_MS / 2);
   // 타이머가 프로세스를 잡고 있지 않도록
   if (cleanupTimer && typeof cleanupTimer === 'object' && 'unref' in cleanupTimer) {
     cleanupTimer.unref();

@@ -81,6 +81,28 @@ export function registerEmulationTools(server: McpServer): void {
     },
     async (args: unknown) => {
       const params = emulateSchema.parse(args ?? {});
+      const hasAnyOption =
+        params.colorScheme != null ||
+        params.cpuThrottling != null ||
+        params.geolocation != null ||
+        params.networkConditions != null ||
+        params.userAgent != null ||
+        params.viewport != null ||
+        params.timezoneId != null ||
+        params.locale != null ||
+        (params.disabledImageTypes != null && params.disabledImageTypes.length > 0);
+
+      if (!hasAnyOption) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'No emulation options specified. Provide at least one option (colorScheme, cpuThrottling, geolocation, networkConditions, userAgent, viewport, timezoneId, locale).',
+            },
+          ],
+        };
+      }
+
       const target = await findElectronTarget();
       const applied: string[] = [];
 
@@ -180,17 +202,6 @@ export function registerEmulationTools(server: McpServer): void {
           applied.push(`disabledImages: ${params.disabledImageTypes.join(', ')}`);
         }
       });
-
-      if (applied.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: 'No emulation options specified. Provide at least one option (colorScheme, cpuThrottling, geolocation, networkConditions, userAgent, viewport, timezoneId, locale).',
-            },
-          ],
-        };
-      }
 
       logger.info('Emulation applied', applied);
       return {
