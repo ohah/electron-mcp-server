@@ -104,18 +104,21 @@ export function setSelectedPageId(pageId: string | null): void {
   selectedPageId = pageId;
 }
 
+/** 선택된 포트를 우선 배치한 앱 목록 반환. */
+function orderBySelectedPort(apps: ElectronAppInfo[]): ElectronAppInfo[] {
+  if (selectedPort == null) return apps;
+  return [
+    apps.find((a) => a.port === selectedPort),
+    ...apps.filter((a) => a.port !== selectedPort),
+  ].filter(Boolean) as ElectronAppInfo[];
+}
+
 /** 렌더러(page) 타겟만 반환. 선택된 포트에 없으면 다른 포트에서도 검색. 없으면 null. */
 export async function findRendererTarget(): Promise<DevToolsTarget | null> {
   const apps = await scanForElectronApps();
   if (apps.length === 0) return null;
 
-  const ordered =
-    selectedPort != null
-      ? ([
-          apps.find((a) => a.port === selectedPort),
-          ...apps.filter((a) => a.port !== selectedPort),
-        ].filter(Boolean) as ElectronAppInfo[])
-      : apps;
+  const ordered = orderBySelectedPort(apps);
 
   for (const app of ordered) {
     const withWs = app.targets.filter(
@@ -143,13 +146,7 @@ export async function getMainProcessTarget(): Promise<DevToolsTarget | null> {
   const apps = await scanForElectronApps();
   if (apps.length === 0) return null;
 
-  const ordered =
-    selectedPort != null
-      ? ([
-          apps.find((a) => a.port === selectedPort),
-          ...apps.filter((a) => a.port !== selectedPort),
-        ].filter(Boolean) as ElectronAppInfo[])
-      : apps;
+  const ordered = orderBySelectedPort(apps);
 
   for (const app of ordered) {
     const t = app.targets.find(
@@ -327,31 +324,18 @@ export async function getElectronProcessStructure(
     });
     const currentApp = await getCurrentApp();
     const app = currentApp ?? apps[0];
-    const all = app.targets
-      .filter((t) => t.webSocketDebuggerUrl)
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        url: t.url,
-        type: t.type,
-        description: t.description ?? '',
-        webSocketDebuggerUrl: t.webSocketDebuggerUrl!,
-      }));
-    const mainTarget = all.find((t) => t.type === 'node') ?? null;
-    const pageTargets = all.filter(
-      (t) => t.type === 'page' && (includeDevTools || !(t.title || '').includes('DevTools'))
-    );
+    const currentItem = appItems.find((item) => item.port === app.port) ?? appItems[0];
     return {
       platform: process.platform,
       port: app.port,
-      main: mainTarget,
-      renderers: pageTargets,
+      main: currentItem.main,
+      renderers: currentItem.renderers,
       capabilities,
       message:
         apps.length > 1
           ? `${apps.length} Electron app(s) (ports ${apps.map((a) => a.port).join(', ')}). Use select_port to choose. Current: port ${app.port}`
-          : `Electron: main ${mainTarget ? '1' : '0'}, renderers ${pageTargets.length} (port ${app.port})`,
-      automationReady: all.length > 0,
+          : `Electron: main ${currentItem.main ? '1' : '0'}, renderers ${currentItem.renderers.length} (port ${app.port})`,
+      automationReady: (currentItem.main != null || currentItem.renderers.length > 0),
       apps: appItems.length > 0 ? appItems : undefined,
     };
   } catch (e) {

@@ -10,7 +10,6 @@ import { WebSocket } from 'ws';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { findRendererTarget, getMainProcessTarget, sendCdp, type DevToolsTarget } from './electron';
 import { NavigationBucketStore } from './navigation-bucket-store';
-import { MAX_NAVIGATION_SAVED } from './constants';
 import { createLogger } from './logger';
 
 const logger = createLogger('console');
@@ -39,7 +38,6 @@ let rendererTargetId: string | null = null;
 /** msgid → 메시지 */
 const byMsgId = new Map<number, ConsoleMessageEntry>();
 const bucketStore = new NavigationBucketStore<ConsoleMessageEntry>({
-  maxBuckets: MAX_NAVIGATION_SAVED,
   onEvict: (entries: ConsoleMessageEntry[]) => {
     for (const e of entries) {
       byMsgId.delete(e.msgid);

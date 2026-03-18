@@ -15,10 +15,6 @@ import {
   getMainNetworkRequestList,
 } from './network-main';
 import { NavigationBucketStore } from './navigation-bucket-store';
-import { MAX_NAVIGATION_SAVED } from './constants';
-import { createLogger } from './logger';
-
-const logger = createLogger('network');
 
 export interface NetworkRequestEntry {
   requestId: string;
@@ -39,7 +35,6 @@ export interface NetworkRequestEntry {
 let captureWs: WebSocket | null = null;
 const byRequestId = new Map<string, NetworkRequestEntry>();
 const bucketStore = new NavigationBucketStore<NetworkRequestEntry>({
-  maxBuckets: MAX_NAVIGATION_SAVED,
   onEvict: (entries: NetworkRequestEntry[]) => {
     for (const e of entries) {
       byRequestId.delete(e.requestId);
@@ -66,10 +61,6 @@ function parseHeaders(
     if (value != null) out[name] = String(value);
   }
   return out;
-}
-
-function addToCurrentBucket(entry: NetworkRequestEntry): void {
-  bucketStore.add(entry);
 }
 
 function scheduleBodyQueue(): void {
@@ -161,7 +152,7 @@ async function startCaptureIfNeeded(): Promise<void> {
           loaderId: (params as { loaderId?: string }).loaderId,
         };
         byRequestId.set(requestId, entry);
-        addToCurrentBucket(entry);
+        bucketStore.add(entry);
       } else if (method === 'Network.responseReceived' && requestId) {
         const entry = byRequestId.get(requestId);
         if (entry) {
