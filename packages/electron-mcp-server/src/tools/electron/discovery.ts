@@ -18,41 +18,67 @@ const logger = createLogger('discovery');
 /** 스캔 실패 시 마지막 원인(디버깅용). */
 let lastScanError: string | undefined;
 
+/** 스캔 결과 캐시. 짧은 TTL(1초)로 동일 호출 체인 내 중복 스캔 방지. */
+const SCAN_CACHE_TTL_MS = 1_000;
+let scanCache: { result: ElectronAppInfo[]; timestamp: number } | null = null;
+
+/** 단일 포트 스캔 */
+async function scanPort(
+  port: number
+): Promise<
+  { port: number; targets: ElectronAppInfo['targets'] } | { port: number; error: string }
+> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/json`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) {
+      return { port, error: `HTTP ${res.status}` };
+    }
+    const raw = await res.json();
+    const targets = Array.isArray(raw)
+      ? (raw as Array<{
+          id: string;
+          title: string;
+          url: string;
+          type: string;
+          description?: string;
+          webSocketDebuggerUrl?: string;
+        }>)
+      : [];
+    const relevantTargets = targets.filter((t) => t && (t.type === 'page' || t.type === 'node'));
+    if (relevantTargets.length > 0) {
+      return { port, targets: relevantTargets };
+    }
+    return { port, error: `${targets.length} target(s), 0 with type 'page' or 'node'` };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { port, error: msg };
+  }
+}
+
 export async function scanForElectronApps(): Promise<ElectronAppInfo[]> {
-  const found: ElectronAppInfo[] = [];
+  // 캐시 히트: TTL 내 이전 결과 재사용
+  if (scanCache && Date.now() - scanCache.timestamp < SCAN_CACHE_TTL_MS) {
+    return scanCache.result;
+  }
+
   lastScanError = undefined;
-  for (const port of PORTS) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/json`, {
-        signal: AbortSignal.timeout(2000),
-      });
-      if (!res.ok) {
-        lastScanError = `port ${port}: HTTP ${res.status}`;
-        continue;
-      }
-      const raw = await res.json();
-      const targets = Array.isArray(raw)
-        ? (raw as Array<{
-            id: string;
-            title: string;
-            url: string;
-            type: string;
-            description?: string;
-            webSocketDebuggerUrl?: string;
-          }>)
-        : [];
-      const relevantTargets = targets.filter((t) => t && (t.type === 'page' || t.type === 'node'));
-      if (relevantTargets.length > 0) {
-        found.push({ port, targets: relevantTargets });
-        logger.debug(`Found app on port ${port}`, { targets: relevantTargets.length });
-      } else {
-        lastScanError = `port ${port}: ${targets.length} target(s), 0 with type 'page' or 'node'`;
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      lastScanError = `port ${port}: ${msg}`;
+
+  // 모든 포트를 병렬 스캔
+  const results = await Promise.all(PORTS.map(scanPort));
+
+  const found: ElectronAppInfo[] = [];
+  for (const r of results) {
+    if ('targets' in r) {
+      found.push({ port: r.port, targets: r.targets });
+      logger.debug(`Found app on port ${r.port}`, { targets: r.targets.length });
+    } else {
+      lastScanError = `port ${r.port}: ${r.error}`;
     }
   }
+
+  scanCache = { result: found, timestamp: Date.now() };
   return found;
 }
 
