@@ -82,6 +82,10 @@ describe('MCP E2E', () => {
     expect(names).toContain('select_page');
     expect(names).toContain('navigate_page');
     expect(names).toContain('wait_for');
+    expect(names).toContain('new_page');
+    expect(names).toContain('close_page');
+    expect(names).toContain('emulate');
+    expect(names).toContain('resize_page');
   });
 
   test('tools/call get_electron_window_info', async () => {
