@@ -1,7 +1,7 @@
 /**
  * 내비게이션 (Navigation automation) — 이슈 #3 로드맵
  * list_pages, select_page, navigate_page, wait_for 실구현.
- * close_page, new_page는 CDP 단독 모드 제한으로 안내만 반환.
+ * new_page, close_page는 DevTools HTTP 엔드포인트로 창/탭 생성을 시도.
  * @see https://github.com/ohah/electron-mcp-server/issues/3
  * @see docs/MCP-SERVER-DESIGN.md (Chrome DevTools MCP 파라미터 스펙)
  */
@@ -13,11 +13,13 @@ import {
   getLastScanError,
   getCurrentApp,
   findElectronTarget,
+  getSelectedPageId,
   setSelectedPageId,
   getTargetByPageId,
   sendCdp,
   withCdpWs,
   executeInElectron,
+  type ElectronAppInfo,
   type DevToolsTarget,
 } from './electron';
 import { CDP_NAVIGATION_TIMEOUT_MS, WAIT_FOR_POLL_MS } from './constants';
@@ -54,6 +56,58 @@ const waitForSchema = z.object({
   text: z.string().min(1, 'text must be non-empty').describe('Text to wait for in the page body'),
   timeout: z.number().optional().default(30_000).describe('Wait timeout (ms)'),
 });
+
+async function requestDevToolsEndpoint(
+  port: number,
+  path: string,
+  method: 'GET' | 'PUT'
+): Promise<Response> {
+  return fetch(`http://127.0.0.1:${port}${path}`, {
+    method,
+    signal: AbortSignal.timeout(5000),
+  });
+}
+
+async function requestDevToolsJson<T>(port: number, path: string): Promise<T> {
+  let res = await requestDevToolsEndpoint(port, path, 'PUT');
+  if (res.status === 404 || res.status === 405) {
+    res = await requestDevToolsEndpoint(port, path, 'GET');
+  }
+  if (!res.ok) {
+    throw new Error(`DevTools endpoint ${path} failed with HTTP ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
+async function requestDevToolsText(port: number, path: string): Promise<string> {
+  let res = await requestDevToolsEndpoint(port, path, 'PUT');
+  if (res.status === 404 || res.status === 405) {
+    res = await requestDevToolsEndpoint(port, path, 'GET');
+  }
+  if (!res.ok) {
+    throw new Error(`DevTools endpoint ${path} failed with HTTP ${res.status}`);
+  }
+  return res.text();
+}
+
+async function findAppContainingTarget(pageId: string): Promise<ElectronAppInfo | null> {
+  const apps = await scanForElectronApps();
+  return apps.find((app) => app.targets.some((target) => target.id === pageId)) ?? null;
+}
+
+async function waitForTargetCount(port: number, minCount: number, timeout: number): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const apps = await scanForElectronApps();
+    const app = apps.find((candidate) => candidate.port === port);
+    const pageCount =
+      app?.targets.filter(
+        (target) => target.type === 'page' && !(target.title || '').includes('DevTools')
+      ).length ?? 0;
+    if (pageCount >= minCount) return;
+    await new Promise((resolve) => setTimeout(resolve, WAIT_FOR_POLL_MS));
+  }
+}
 
 async function navigatePageImpl(
   target: DevToolsTarget,
@@ -284,15 +338,35 @@ export function registerNavigationTools(server: McpServer): void {
       inputSchema: closePageSchema,
     },
     async (args: unknown) => {
-      closePageSchema.parse(args);
+      const { pageId } = closePageSchema.parse(args);
+      const app = await findAppContainingTarget(pageId);
+      if (!app) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                ok: false,
+                message: `Page not found: ${pageId}. Use list_pages to see available ids.`,
+              }),
+            },
+          ],
+        };
+      }
+
+      const text = await requestDevToolsText(app.port, `/json/close/${encodeURIComponent(pageId)}`);
+      if (getSelectedPageId() === pageId) {
+        setSelectedPageId(null);
+      }
       return {
         content: [
           {
             type: 'text' as const,
             text: JSON.stringify({
-              ok: false,
-              message:
-                'close_page is not supported when the MCP server connects via CDP only. The Electron app must expose closing a window (e.g. via IPC or send_command_to_electron). Use list_pages to see page ids.',
+              ok: true,
+              pageId,
+              port: app.port,
+              message: text.trim() || `Closed page ${pageId}`,
             }),
           },
         ],
@@ -316,15 +390,51 @@ export function registerNavigationTools(server: McpServer): void {
       inputSchema: newPageSchema,
     },
     async (args: unknown) => {
-      newPageSchema.parse(args);
+      const {
+        url = 'about:blank',
+        background = false,
+        timeout = CDP_NAVIGATION_TIMEOUT_MS,
+      } = newPageSchema.parse(args);
+      const app = await getCurrentApp();
+      if (!app) {
+        const hint = getLastScanError() ? ` (${getLastScanError()})` : '';
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                ok: false,
+                message:
+                  'No Electron app with remote debugging. Start with: electron . --remote-debugging-port=9222' +
+                  hint,
+              }),
+            },
+          ],
+        };
+      }
+
+      const beforeCount = app.targets.filter(
+        (target) => target.type === 'page' && !(target.title || '').includes('DevTools')
+      ).length;
+      const created = await requestDevToolsJson<
+        Partial<DevToolsTarget> & { webSocketDebuggerUrl?: string }
+      >(app.port, `/json/new?${encodeURIComponent(url)}`);
+      if (!background && created.id) {
+        setSelectedPageId(created.id);
+      }
+      await waitForTargetCount(app.port, beforeCount + 1, timeout);
+
       return {
         content: [
           {
             type: 'text' as const,
             text: JSON.stringify({
-              ok: false,
-              message:
-                'new_page is not supported when the MCP server connects via CDP only. Start a new window from the Electron app, then use list_pages and select_page to switch to it.',
+              ok: true,
+              pageId: created.id,
+              title: created.title,
+              url: created.url ?? url,
+              port: app.port,
+              selected: !background,
             }),
           },
         ],

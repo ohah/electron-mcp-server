@@ -29,10 +29,14 @@ export const IMPLEMENTED_IDS = new Set([
   'get_network_request',
   'list_electron_main_ipc_events',
   'get_electron_main_ipc_event',
+  'close_page',
   'list_pages',
   'select_page',
   'navigate_page',
+  'new_page',
   'wait_for',
+  'emulate',
+  'resize_page',
 ]);
 
 /** 테스트 도구는 있으나 MCP 지원에서 제외된 항목 (사이드바에 취소선) */

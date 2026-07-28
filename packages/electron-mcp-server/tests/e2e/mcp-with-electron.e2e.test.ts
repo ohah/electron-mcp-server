@@ -180,6 +180,10 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     expect(names).toContain('select_page');
     expect(names).toContain('navigate_page');
     expect(names).toContain('wait_for');
+    expect(names).toContain('new_page');
+    expect(names).toContain('close_page');
+    expect(names).toContain('emulate');
+    expect(names).toContain('resize_page');
   });
 
   test('tools/call get_electron_window_info → automationReady', async () => {
@@ -367,6 +371,32 @@ describe.skipIf(skipMcpElectronE2E)('MCP + Electron E2E', () => {
     const content = (res.result as { content?: { type: string; text?: string }[] })?.content ?? [];
     const text = content.find((c) => c.type === 'text')?.text ?? '';
     expect(text).toMatch(/Found text|MCP/);
+  });
+
+  test('tools/call new_page + close_page → 새 페이지 열고 닫기', async () => {
+    const newRes = await callMcp('tools/call', {
+      name: 'new_page',
+      arguments: { url: 'about:blank', timeout: 5000 },
+    });
+    expect(newRes.error).toBeUndefined();
+    const newContent =
+      (newRes.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const newText = newContent.find((c) => c.type === 'text')?.text ?? '';
+    const created = JSON.parse(newText) as { ok?: boolean; pageId?: string };
+    expect(created.ok).toBe(true);
+    expect(created.pageId).toBeDefined();
+
+    const closeRes = await callMcp('tools/call', {
+      name: 'close_page',
+      arguments: { pageId: created.pageId },
+    });
+    expect(closeRes.error).toBeUndefined();
+    const closeContent =
+      (closeRes.result as { content?: { type: string; text?: string }[] })?.content ?? [];
+    const closeText = closeContent.find((c) => c.type === 'text')?.text ?? '';
+    const closed = JSON.parse(closeText) as { ok?: boolean; pageId?: string };
+    expect(closed.ok).toBe(true);
+    expect(closed.pageId).toBe(created.pageId);
   });
 
   test('tools/call list_network_requests → 상시 수집 후 목록·상세 조회', async () => {
