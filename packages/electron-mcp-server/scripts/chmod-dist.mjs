@@ -1,5 +1,5 @@
 /**
- * dist/index.js에 실행 권한 부여 (Unix). Windows에서는 no-op.
+ * dist/index.cjs에 실행 권한 부여 (Unix). Windows에서는 no-op.
  * 빌드 후 bin 실행 시 Permission denied 방지.
  */
 import fs from 'node:fs';
