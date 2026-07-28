@@ -2,7 +2,7 @@ import { WebSocket } from 'ws';
 import http from 'node:http';
 
 function fetchJSON(path) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     http.get('http://localhost:9222' + path, (res) => {
       let d = '';
       res.on('data', (c) => (d += c));
