@@ -186,16 +186,7 @@ describe('deepResolveArgs CDP call count', () => {
     const { rootId, registry } = createMockObjectTree(5, 5);
     const counter = { cdpCalls: 0 };
 
-    const result = await formatWithGetProperties(
-      registry,
-      rootId,
-      undefined,
-      0,
-      new Set(),
-      999,
-      50,
-      counter
-    );
+    await formatWithGetProperties(registry, rootId, undefined, 0, new Set(), 999, 50, counter);
 
     // depth 무제한: 리프 노드까지 모두 getProperties 시도
     // total = 1 + 5 + 25 + 125 + 625 + 3125 = 3906
@@ -207,16 +198,7 @@ describe('deepResolveArgs CDP call count', () => {
     const { rootId, registry } = createMockObjectTree(5, 10);
     const counter = { cdpCalls: 0 };
 
-    const result = await formatWithGetProperties(
-      registry,
-      rootId,
-      undefined,
-      0,
-      new Set(),
-      999,
-      50,
-      counter
-    );
+    await formatWithGetProperties(registry, rootId, undefined, 0, new Set(), 999, 50, counter);
 
     // 10 props, 5 depth: 1 + 10 + 100 + 1000 + 10000 + 100000 = 111111
     console.error(`depth=unlimited, 10 props, 5 levels: ${counter.cdpCalls} CDP calls`);
@@ -227,16 +209,7 @@ describe('deepResolveArgs CDP call count', () => {
     const { rootId, registry } = createMockObjectTree(5, 10);
     const counter = { cdpCalls: 0 };
 
-    const result = await formatWithGetProperties(
-      registry,
-      rootId,
-      undefined,
-      0,
-      new Set(),
-      3,
-      50,
-      counter
-    );
+    await formatWithGetProperties(registry, rootId, undefined, 0, new Set(), 3, 50, counter);
 
     // depth 3 제한: 1 + 10 + 100 + 1000 = 1111
     console.error(`depth=3, 10 props, 5 levels: ${counter.cdpCalls} CDP calls`);
